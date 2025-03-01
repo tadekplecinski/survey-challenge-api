@@ -1,5 +1,5 @@
 import jwt, { JsonWebTokenError } from 'jsonwebtoken';
-import JWTUtils from '../../utils/jwt-utils';
+import JWTUtils from '../../utils/jwt-utils.js';
 
 describe('JWT utils', () => {
   it('should create an access token', () => {

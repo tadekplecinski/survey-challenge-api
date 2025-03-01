@@ -1,5 +1,5 @@
 import jwt, { SignOptions } from 'jsonwebtoken';
-import environment from '../config/environment';
+import environment from '../config/environment.js';
 
 export default class JWTUtils {
   static generateAccessToken(

@@ -1,12 +1,15 @@
 import { Sequelize, DataTypes, Model as SeqModel } from 'sequelize';
-import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { dirname, basename, join } from 'node:path';
 import fs from 'node:fs';
 
-const basename = path.basename(__filename);
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+const basenameFile = basename(__filename);
 
 type Model = typeof SeqModel & {
   associate?: (models: Models) => void;
-  sequelize?: Sequelize;
 };
 
 interface Models {
@@ -18,10 +21,10 @@ const models: Models & { sequelize?: Sequelize } = {};
 export const registerModels = (sequelize: Sequelize) => {
   fs.readdirSync(__dirname)
     .filter((file) => {
-      return file !== basename && file.endsWith('.ts');
+      return file !== basenameFile && file.endsWith('.ts');
     })
     .forEach((file) => {
-      const model = require(path.join(__dirname, file))(
+      const model = require(join(__dirname, file))(
         sequelize,
         DataTypes
       ) as Model;
