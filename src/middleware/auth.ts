@@ -16,14 +16,16 @@ export default function requiresAuth() {
         }
         token = headerToken;
       } catch (err) {
-        return res
+        res
           .status(401)
           .send({ success: false, message: 'Bearer token malformed' });
+        return;
       }
     } else {
-      return res
+      res
         .status(401)
         .send({ success: false, message: 'Authorization header not found' });
+      return;
     }
 
     try {
@@ -31,7 +33,8 @@ export default function requiresAuth() {
       req.body.jwt = jwt;
       next();
     } catch (err) {
-      return res.status(401).send({ success: false, message: 'Invalid token' });
+      res.status(401).send({ success: false, message: 'Invalid token' });
+      return;
     }
   };
 }

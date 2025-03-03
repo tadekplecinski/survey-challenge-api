@@ -40,7 +40,7 @@ export default class Database {
   async sync() {
     await this.connection?.sync({
       logging: false,
-      force: true,
+      // force: true,
     });
 
     // if (!this.isTestEnvironment) {

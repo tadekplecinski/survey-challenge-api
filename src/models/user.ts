@@ -6,13 +6,10 @@ import {
   InferCreationAttributes,
   CreationOptional,
   NonAttribute,
-  // Association,
   HasManyAddAssociationsMixin,
 } from 'sequelize';
 import bcrypt from 'bcrypt';
 import environment from '../config/environment.ts';
-
-// type IRole = InstanceType<ReturnType<typeof import('./role.js').default>>;
 
 export default (sequelize: Sequelize) => {
   class User extends Model<
@@ -26,12 +23,7 @@ export default (sequelize: Sequelize) => {
     declare firstName: CreationOptional<string>;
     declare lastName: CreationOptional<string>;
 
-    // declare Roles?: NonAttribute<Array<IRole>>;
     declare addRoles: HasManyAddAssociationsMixin<{ role: string }, number>;
-
-    // declare static associations: {
-    //   Roles: Association<User, IRole>;
-    // };
 
     static associate(models: any) {
       User.hasMany(models.Role);
@@ -75,6 +67,8 @@ export default (sequelize: Sequelize) => {
             transaction: t,
           }
         );
+
+        console.log('rolesToSave', rolesToSave);
 
         if (rolesToSave.length > 0) {
           await user.addRoles(rolesToSave, { transaction: t });

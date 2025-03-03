@@ -8,17 +8,7 @@ const __dirname = dirname(__filename);
 
 const basenameFile = basename(__filename);
 
-type Model = typeof SeqModel & {
-  associate?: (models: Models) => void;
-};
-
-interface Models {
-  [key: string]: Model;
-}
-
-export type ModelsType = Models & { sequelize?: Sequelize };
-
-const models: ModelsType = {};
+const models = {} as any;
 
 export const registerModels = async (sequelize: Sequelize) => {
   const files = fs.readdirSync(__dirname).filter((file) => {
@@ -27,7 +17,7 @@ export const registerModels = async (sequelize: Sequelize) => {
 
   for (const file of files) {
     const modelModule = await import(join(__dirname, file));
-    const model = modelModule.default(sequelize) as Model;
+    const model = modelModule.default(sequelize);
 
     models[model.name] = model;
   }
