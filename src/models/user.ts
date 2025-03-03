@@ -5,86 +5,94 @@ import {
   InferAttributes,
   InferCreationAttributes,
   CreationOptional,
-  NonAttribute,
-  HasManyAddAssociationsMixin,
+  BelongsToManyAddAssociationsMixin,
 } from 'sequelize';
 import bcrypt from 'bcrypt';
 import environment from '../config/environment.ts';
+import { Role } from './role.ts';
 
-export default (sequelize: Sequelize) => {
-  class User extends Model<
-    InferAttributes<User>,
-    InferCreationAttributes<User>
-  > {
-    declare id: CreationOptional<number>;
-    declare email: string;
-    declare password: string;
-    declare userName: string;
-    declare firstName: CreationOptional<string>;
-    declare lastName: CreationOptional<string>;
+export class User extends Model<
+  InferAttributes<User>,
+  InferCreationAttributes<User>
+> {
+  declare id: CreationOptional<number>;
+  declare email: string;
+  declare password: string;
+  declare userName: string;
+  declare firstName: CreationOptional<string>;
+  declare lastName: CreationOptional<string>;
 
-    declare addRoles: HasManyAddAssociationsMixin<{ role: string }, number>;
+  declare setRoles: BelongsToManyAddAssociationsMixin<Role, number>;
 
-    static associate(models: any) {
-      User.hasMany(models.Role);
-    }
-
-    static async hashPassword(password: string): Promise<string> {
-      return bcrypt.hash(password, environment.saltRounds);
-    }
-
-    static async createNewUser({
-      email,
-      password,
-      roles,
-      userName,
-      firstName,
-      lastName,
-    }: {
-      email: string;
-      password: string;
-      roles: string[];
-      userName: string;
-      firstName: string;
-      lastName: string;
-    }) {
-      return sequelize.transaction(async (t) => {
-        let rolesToSave: { role: string }[] = [];
-
-        if (roles && Array.isArray(roles)) {
-          rolesToSave = roles.map((role) => ({ role }));
-        }
-
-        const user = await User.create(
-          {
-            email,
-            password,
-            userName,
-            firstName,
-            lastName,
-          },
-          {
-            transaction: t,
-          }
-        );
-
-        console.log('rolesToSave', rolesToSave);
-
-        if (rolesToSave.length > 0) {
-          await user.addRoles(rolesToSave, { transaction: t });
-        }
-      });
-    }
-
-    comparePasswords(password: string): Promise<boolean> {
-      return bcrypt.compare(password, this.password);
-    }
-
-    toJSON() {
-      return { ...this.get(), password: undefined };
-    }
+  static associate(models: any) {
+    this.belongsToMany(models.Role, {
+      through: models.UserRole,
+      foreignKey: 'userId',
+      otherKey: 'roleId',
+    });
   }
 
+  static async hashPassword(password: string): Promise<string> {
+    return bcrypt.hash(password, environment.saltRounds);
+  }
+
+  static async createNewUser({
+    email,
+    password,
+    roles,
+    userName,
+    firstName,
+    lastName,
+  }: {
+    email: string;
+    password: string;
+    roles: string[];
+    userName: string;
+    firstName: string;
+    lastName: string;
+  }) {
+    return User.sequelize!.transaction(async (t) => {
+      const user = await User.create(
+        { email, password, userName, firstName, lastName },
+        { transaction: t }
+      );
+
+      const existingRoles = await Promise.all(
+        roles.map(async (roleName) => {
+          let role = await User.sequelize!.models.Role.findOne({
+            where: { role: roleName },
+            transaction: t,
+          });
+
+          if (!role) {
+            role = await User.sequelize!.models.Role.create(
+              { role: roleName },
+              { transaction: t }
+            );
+          }
+
+          return role as Role;
+        })
+      );
+
+      await user.setRoles(existingRoles, { transaction: t });
+
+      return user;
+    });
+  }
+
+  comparePasswords(password: string): Promise<boolean> {
+    return bcrypt.compare(password, this.password);
+  }
+
+  toJSON() {
+    return { ...this.get(), password: undefined };
+  }
+}
+
+export type UserModel = typeof User;
+
+export default (sequelize: Sequelize) => {
   User.init(
     {
       id: {
@@ -97,12 +105,8 @@ export default (sequelize: Sequelize) => {
         allowNull: false,
         unique: true,
         validate: {
-          isEmail: {
-            msg: 'Not a valid email address',
-          },
-          notNull: {
-            msg: 'Email is required',
-          },
+          isEmail: { msg: 'Not a valid email address' },
+          notNull: { msg: 'Email is required' },
         },
       },
       password: {
@@ -152,8 +156,7 @@ export default (sequelize: Sequelize) => {
 
   User.beforeSave(async (user) => {
     if (user.password) {
-      const hashedPassword = await User.hashPassword(user.password);
-      user.password = hashedPassword;
+      user.password = await User.hashPassword(user.password);
     }
   });
 

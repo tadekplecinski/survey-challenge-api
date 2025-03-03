@@ -1,10 +1,10 @@
 import { Router } from 'express';
-import models from '../../models/index.ts';
+import models from '../../models/index.js';
 import asyncWrapper from '../../utils/async-wrapper.ts';
 import JWTUtils from '../../utils/jwt-utils.ts';
 
 const router = Router();
-const { User } = models;
+const { User } = models as any;
 
 router.post(
   '/register',

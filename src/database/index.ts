@@ -1,7 +1,7 @@
 import cls from 'cls-hooked';
 import { Sequelize } from 'sequelize';
 
-import { registerModels } from '../models/index.ts';
+import { registerModels } from '../models/index.js';
 
 export default class Database {
   isTestEnvironment: boolean;

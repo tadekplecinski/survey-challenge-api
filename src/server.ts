@@ -3,7 +3,6 @@ import Database from './database/index.ts';
 import environment from './config/environment.ts';
 import dbConfig from './config/database.js';
 
-// (async () => {
 try {
   const db = new Database(environment.nodeEnv, dbConfig);
   await db.connect();
@@ -18,4 +17,3 @@ try {
 
   console.error('Something went wrong when initializing the server.');
 }
-// })();
