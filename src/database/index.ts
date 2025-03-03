@@ -1,8 +1,7 @@
 import cls from 'cls-hooked';
 import { Sequelize } from 'sequelize';
 
-import { DbConfig } from '../config/database.js';
-import { registerModels } from '../models/index.js';
+import { registerModels } from '../models/index.ts';
 
 export default class Database {
   isTestEnvironment: boolean;
@@ -10,7 +9,7 @@ export default class Database {
 
   constructor(
     private environment: 'development' | 'test',
-    private dbConfig: DbConfig
+    private dbConfig: any
   ) {
     this.isTestEnvironment = this.environment === 'test';
   }
@@ -30,8 +29,7 @@ export default class Database {
       console.log('Connection to the database established successfully');
     }
 
-    registerModels(this.connection);
-
+    await registerModels(this.connection);
     await this.sync();
   }
 
@@ -42,11 +40,11 @@ export default class Database {
   async sync() {
     await this.connection?.sync({
       logging: false,
-      force: this.isTestEnvironment,
+      force: true,
     });
 
-    if (!this.isTestEnvironment) {
-      console.log('Connection synced successfully');
-    }
+    // if (!this.isTestEnvironment) {
+    //   console.log('Connection synced successfully');
+    // }
   }
 }

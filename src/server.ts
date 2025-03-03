@@ -1,6 +1,6 @@
 import './config/index.js';
-import Database from './database/index.js';
-import environment from './config/environment.js';
+import Database from './database/index.ts';
+import environment from './config/environment.ts';
 import dbConfig from './config/database.js';
 
 (async () => {

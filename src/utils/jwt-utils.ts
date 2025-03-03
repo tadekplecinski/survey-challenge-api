@@ -1,5 +1,5 @@
 import jwt, { SignOptions } from 'jsonwebtoken';
-import environment from '../config/environment.js';
+import environment from '../config/environment.ts';
 
 export default class JWTUtils {
   static generateAccessToken(
@@ -9,15 +9,15 @@ export default class JWTUtils {
     return jwt.sign(payload, environment.jwtAccessTokenSecret, options);
   }
 
-  static generateRefreshToken(payload: string | object) {
-    return jwt.sign(payload, environment.jwtRefreshTokenSecret);
-  }
+  // static generateRefreshToken(payload: string | object) {
+  //   return jwt.sign(payload, environment.jwtRefreshTokenSecret);
+  // }
 
   static verifyAccessToken(accessToken: string) {
     return jwt.verify(accessToken, environment.jwtAccessTokenSecret);
   }
 
-  static verifyRefreshToken(refreshToken: string) {
-    return jwt.verify(refreshToken, environment.jwtRefreshTokenSecret);
-  }
+  // static verifyRefreshToken(refreshToken: string) {
+  //   return jwt.verify(refreshToken, environment.jwtRefreshTokenSecret);
+  // }
 }

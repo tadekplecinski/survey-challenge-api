@@ -1,4 +1,4 @@
-import { Sequelize, DataTypes, Model as SeqModel } from 'sequelize';
+import { Sequelize, Model as SeqModel } from 'sequelize';
 import { fileURLToPath } from 'node:url';
 import { dirname, basename, join } from 'node:path';
 import fs from 'node:fs';
@@ -16,20 +16,21 @@ interface Models {
   [key: string]: Model;
 }
 
-const models: Models & { sequelize?: Sequelize } = {};
+export type ModelsType = Models & { sequelize?: Sequelize };
 
-export const registerModels = (sequelize: Sequelize) => {
-  fs.readdirSync(__dirname)
-    .filter((file) => {
-      return file !== basenameFile && file.endsWith('.ts');
-    })
-    .forEach((file) => {
-      const model = require(join(__dirname, file))(
-        sequelize,
-        DataTypes
-      ) as Model;
-      models[model.name] = model;
-    });
+const models: ModelsType = {};
+
+export const registerModels = async (sequelize: Sequelize) => {
+  const files = fs.readdirSync(__dirname).filter((file) => {
+    return file !== basenameFile && file.endsWith('.ts');
+  });
+
+  for (const file of files) {
+    const modelModule = await import(join(__dirname, file));
+    const model = modelModule.default(sequelize) as Model;
+
+    models[model.name] = model;
+  }
 
   Object.keys(models).forEach((modelName) => {
     if (models[modelName].associate) {

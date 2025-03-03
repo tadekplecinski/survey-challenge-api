@@ -1,4 +1,4 @@
-import { DbEnvironment } from './database.js';
+export type DbEnvironment = 'development' | 'test';
 
 export interface Environment {
   port: number;
