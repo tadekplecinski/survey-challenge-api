@@ -1,10 +1,9 @@
 import './config/index.js';
 import Database from './database/index.ts';
-import environment from './config/environment.ts';
 import dbConfig from './config/database.js';
 
 try {
-  const db = new Database(environment.nodeEnv, dbConfig);
+  const db = new Database(dbConfig);
   await db.connect();
 
   import('./app.ts').then((_app) => {

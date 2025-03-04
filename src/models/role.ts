@@ -19,8 +19,6 @@ export class Role extends Model<
   }
 }
 
-export type RoleModel = typeof Role;
-
 export default (sequelize: Sequelize) => {
   Role.init(
     {
@@ -30,7 +28,7 @@ export default (sequelize: Sequelize) => {
         primaryKey: true,
       },
       role: {
-        type: DataTypes.STRING(50),
+        type: DataTypes.ENUM('admin', 'user'),
         unique: true,
         allowNull: false,
       },
@@ -38,6 +36,7 @@ export default (sequelize: Sequelize) => {
     {
       sequelize,
       modelName: 'Role',
+      timestamps: false,
     }
   );
 

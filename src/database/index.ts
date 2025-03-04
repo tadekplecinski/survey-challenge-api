@@ -4,30 +4,21 @@ import { Sequelize } from 'sequelize';
 import { registerModels } from '../models/index.js';
 
 export default class Database {
-  isTestEnvironment: boolean;
   connection?: Sequelize;
 
-  constructor(
-    private environment: 'development' | 'test',
-    private dbConfig: any
-  ) {
-    this.isTestEnvironment = this.environment === 'test';
-  }
+  constructor(private dbConfig: any) {}
 
   async connect() {
     const namespace = cls.createNamespace('transactions-namespace');
     Sequelize.useCLS(namespace);
 
     this.connection = new Sequelize({
-      ...this.dbConfig[this.environment],
-      logging: this.isTestEnvironment ? false : console.log,
+      ...this.dbConfig,
     });
 
     await this.connection.authenticate({ logging: false });
 
-    if (!this.isTestEnvironment) {
-      console.log('Connection to the database established successfully');
-    }
+    console.log('Connection to the database established successfully');
 
     await registerModels(this.connection);
     await this.sync();
@@ -40,11 +31,6 @@ export default class Database {
   async sync() {
     await this.connection?.sync({
       logging: false,
-      // force: true,
     });
-
-    // if (!this.isTestEnvironment) {
-    //   console.log('Connection synced successfully');
-    // }
   }
 }

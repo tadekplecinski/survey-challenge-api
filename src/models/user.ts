@@ -33,7 +33,7 @@ export class User extends Model<
   }
 
   static async hashPassword(password: string): Promise<string> {
-    return bcrypt.hash(password, environment.saltRounds);
+    return bcrypt.hash(password, 10);
   }
 
   static async createNewUser({
@@ -57,25 +57,12 @@ export class User extends Model<
         { transaction: t }
       );
 
-      const existingRoles = await Promise.all(
-        roles.map(async (roleName) => {
-          let role = await User.sequelize!.models.Role.findOne({
-            where: { role: roleName },
-            transaction: t,
-          });
+      const roleInstances = await Role.findAll({
+        where: { role: roles },
+        transaction: t,
+      });
 
-          if (!role) {
-            role = await User.sequelize!.models.Role.create(
-              { role: roleName },
-              { transaction: t }
-            );
-          }
-
-          return role as Role;
-        })
-      );
-
-      await user.setRoles(existingRoles, { transaction: t });
+      await user.setRoles(roleInstances, { transaction: t });
 
       return user;
     });
@@ -89,8 +76,6 @@ export class User extends Model<
     return { ...this.get(), password: undefined };
   }
 }
-
-export type UserModel = typeof User;
 
 export default (sequelize: Sequelize) => {
   User.init(

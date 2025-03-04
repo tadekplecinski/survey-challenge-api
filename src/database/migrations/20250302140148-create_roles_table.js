@@ -1,6 +1,3 @@
-'use strict';
-
-/** @type {import('sequelize-cli').Migration} */
 export default {
   async up(queryInterface, DataTypes) {
     await queryInterface.createTable('Roles', {
@@ -11,21 +8,9 @@ export default {
         type: DataTypes.INTEGER,
       },
       role: {
-        type: DataTypes.STRING,
-      },
-      createdAt: {
+        type: DataTypes.ENUM('admin', 'user'),
+        unique: true,
         allowNull: false,
-        type: DataTypes.DATE,
-      },
-      updatedAt: {
-        allowNull: false,
-        type: DataTypes.DATE,
-      },
-      UserId: {
-        type: DataTypes.INTEGER,
-        references: { model: { tableName: 'Users' }, key: 'id' },
-        onUpdate: 'CASCADE',
-        onDelete: 'CASCADE',
       },
     });
   },

@@ -1,3 +1,10 @@
-import v1Routes from './v1/index.ts';
+import { Router } from 'express';
+import registerRouter from './register.ts';
+import loginRouter from './login.ts';
 
-export { v1Routes };
+const router = Router();
+
+router.use(registerRouter);
+router.use(loginRouter);
+
+export default router;

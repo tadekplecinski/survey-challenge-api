@@ -1,7 +1,7 @@
 import express, { Express } from 'express';
 import environment from './config/environment.ts';
 import errorsMiddleware from './middleware/errors.ts';
-import { v1Routes } from './controllers/index.ts';
+import routes from './controllers/index.ts';
 
 export default class App {
   app: Express;
@@ -15,7 +15,7 @@ export default class App {
   }
 
   setRoutes() {
-    this.app.use('/v1', v1Routes);
+    this.app.use('/v1', routes);
     this.app.use(errorsMiddleware);
   }
 

@@ -1,7 +1,7 @@
 import { Router } from 'express';
-import models from '../../models/index.js';
-import asyncWrapper from '../../utils/async-wrapper.ts';
-import JWTUtils from '../../utils/jwt-utils.ts';
+import models from '../models/index.js';
+import asyncWrapper from '../utils/async-wrapper.ts';
+import JWTUtils from '../utils/jwt-utils.ts';
 
 const router = Router();
 const { User } = models as any;
