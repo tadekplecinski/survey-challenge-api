@@ -19,10 +19,6 @@ export default class App {
     this.app.use(errorsMiddleware);
   }
 
-  getApp() {
-    return this.app;
-  }
-
   listen() {
     const { port } = environment;
     this.app.listen(port, () => {

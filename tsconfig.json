@@ -11,5 +11,4 @@
     "allowJs": true
   },
   "include": ["src"]
-  // "exclude": ["**/*.js"]
 }
