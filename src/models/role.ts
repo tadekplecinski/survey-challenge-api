@@ -4,14 +4,13 @@ import {
   Sequelize,
   InferAttributes,
   InferCreationAttributes,
-  CreationOptional,
 } from 'sequelize';
 
 export class Role extends Model<
   InferAttributes<Role>,
   InferCreationAttributes<Role>
 > {
-  declare id: CreationOptional<number>;
+  declare id: number;
   declare role: string;
 
   static associate(models: any) {
@@ -26,6 +25,7 @@ export default (sequelize: Sequelize) => {
         type: DataTypes.INTEGER.UNSIGNED,
         autoIncrement: true,
         primaryKey: true,
+        allowNull: false,
       },
       role: {
         type: DataTypes.ENUM('admin', 'user'),

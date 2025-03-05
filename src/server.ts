@@ -27,5 +27,7 @@ try {
     app.listen();
   });
 } catch (err) {
+  console.log('err', err);
+
   console.error('Something went wrong when initializing the server.');
 }

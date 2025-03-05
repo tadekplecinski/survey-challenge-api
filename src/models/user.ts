@@ -27,8 +27,14 @@ export class User extends Model<
   static associate(models: any) {
     this.belongsToMany(models.Role, {
       through: models.UserRole,
-      foreignKey: 'userId',
-      otherKey: 'roleId',
+      // foreignKey: 'userId',
+      // otherKey: 'roleId',
+    });
+
+    this.belongsToMany(models.Survey, {
+      through: models.UserSurvey,
+      // foreignKey: 'userId',
+      // otherKey: 'surveyId',
     });
   }
 
