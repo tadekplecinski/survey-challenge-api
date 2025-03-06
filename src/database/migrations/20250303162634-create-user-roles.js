@@ -11,7 +11,7 @@ export default {
         type: DataTypes.INTEGER,
         allowNull: false,
         references: {
-          model: 'Users', // Matches the actual table name of your Users model
+          model: 'Users',
           key: 'id',
         },
         onDelete: 'CASCADE',
@@ -20,7 +20,7 @@ export default {
         type: DataTypes.INTEGER,
         allowNull: false,
         references: {
-          model: 'Roles', // Matches the actual table name of your Roles model
+          model: 'Roles',
           key: 'id',
         },
         onDelete: 'CASCADE',

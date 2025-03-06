@@ -20,6 +20,7 @@ export default {
       status: {
         type: Sequelize.ENUM('initial', 'draft', 'completed'),
         allowNull: false,
+        defaultValue: 'initial',
       },
       createdAt: {
         allowNull: false,
@@ -31,7 +32,7 @@ export default {
       },
     });
   },
-  async down(queryInterface, Sequelize) {
+  async down(queryInterface) {
     await queryInterface.dropTable('UserSurveys');
   },
 };

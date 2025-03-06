@@ -13,10 +13,10 @@ export default {
       answer: {
         type: Sequelize.STRING,
       },
-      surveyId: {
+      userSurveyId: {
         type: Sequelize.INTEGER,
         allowNull: false,
-        references: { model: 'Surveys', key: 'id' },
+        references: { model: 'UserSurveys', key: 'id' },
       },
       createdAt: {
         allowNull: false,

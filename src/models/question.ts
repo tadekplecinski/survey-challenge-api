@@ -4,22 +4,24 @@ import {
   Sequelize,
   InferAttributes,
   InferCreationAttributes,
+  CreationOptional,
 } from 'sequelize';
 
-export default (sequelize: Sequelize) => {
-  class Question extends Model<
-    InferAttributes<Question>,
-    InferCreationAttributes<Question>
-  > {
-    declare id: number;
-    declare question: string;
-    declare answer: string;
-    declare surveyId: string;
+export class Question extends Model<
+  InferAttributes<Question>,
+  InferCreationAttributes<Question>
+> {
+  declare id: CreationOptional<number>;
+  declare question: string;
+  declare answer?: string;
+  declare userSurveyId: number;
 
-    static associate(models: any) {
-      this.belongsTo(models.Survey);
-    }
+  static associate(models: any) {
+    this.belongsTo(models.UserSurvey, { foreignKey: 'userSurveyId' });
   }
+}
+
+export default (sequelize: Sequelize) => {
   Question.init(
     {
       id: {
@@ -28,12 +30,12 @@ export default (sequelize: Sequelize) => {
         primaryKey: true,
         type: DataTypes.INTEGER,
       },
-      question: { type: DataTypes.STRING, allowNull: false },
+      question: { type: DataTypes.STRING },
       answer: { type: DataTypes.STRING }, // initially null
-      surveyId: {
+      userSurveyId: {
         type: DataTypes.INTEGER,
         allowNull: false,
-        references: { model: 'Surveys', key: 'id' },
+        references: { model: 'UserSurveys', key: 'id' },
       },
     },
     {

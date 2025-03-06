@@ -7,26 +7,29 @@ import {
   CreationOptional,
 } from 'sequelize';
 
-enum Status {
+export enum Status {
   'initial' = 'initial',
   'draft' = 'draft',
   'completed' = 'completed',
 }
 
-export default (sequelize: Sequelize) => {
-  class UserSurvey extends Model<
-    InferAttributes<UserSurvey>,
-    InferCreationAttributes<UserSurvey>
-  > {
-    declare id: CreationOptional<number>;
-    declare userId: number;
-    declare surveyId: number;
-    declare status: Status;
+export class UserSurvey extends Model<
+  InferAttributes<UserSurvey>,
+  InferCreationAttributes<UserSurvey>
+> {
+  declare id: CreationOptional<number>;
+  declare userId: number;
+  declare surveyId: number;
+  declare status: Status;
 
-    static associate(models: any) {
-      // define association here
-    }
+  static associate(models: any) {
+    this.belongsTo(models.User, { foreignKey: 'userId' });
+    this.belongsTo(models.Survey, { foreignKey: 'surveyId' });
+    this.hasMany(models.Question, { foreignKey: 'userSurveyId' });
   }
+}
+
+export default (sequelize: Sequelize) => {
   UserSurvey.init(
     {
       id: {

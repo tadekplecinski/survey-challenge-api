@@ -20,12 +20,6 @@ export default {
         type: DataTypes.STRING(50),
         unique: true,
       },
-      firstName: {
-        type: DataTypes.STRING(50),
-      },
-      lastName: {
-        type: DataTypes.STRING(50),
-      },
       createdAt: {
         allowNull: false,
         type: DataTypes.DATE,

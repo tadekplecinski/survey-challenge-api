@@ -7,7 +7,9 @@ import {
   CreationOptional,
   BelongsToManyAddAssociationsMixin,
 } from 'sequelize';
-import user, { User } from './user.ts';
+import { User } from './user.ts';
+import { Status, UserSurvey } from './userSurvey.ts';
+import { Question } from './question.ts';
 
 export default (sequelize: Sequelize) => {
   class Survey extends Model<
@@ -22,17 +24,20 @@ export default (sequelize: Sequelize) => {
     static associate(models: any) {
       this.belongsToMany(models.User, {
         through: models.UserSurvey,
-        foreignKey: 'surveyId', // This should match Survey's reference in UserSurvey
-        otherKey: 'userId', // This should match User's reference in UserSurvey
+        foreignKey: 'surveyId',
       });
+
+      this.hasMany(models.UserSurvey, { foreignKey: 'surveyId' });
     }
 
     static async createNewSurvey({
       title,
       userId,
+      questions,
     }: {
       title: string;
       userId: string;
+      questions: string[];
     }) {
       return Survey.sequelize!.transaction(async (t) => {
         const survey = await Survey.create({ title }, { transaction: t });
@@ -42,9 +47,26 @@ export default (sequelize: Sequelize) => {
           throw new Error('Survey must be associated with a user');
         }
 
-        await survey.addUser([userInstance], { transaction: t });
+        const userSurvey = await UserSurvey.create(
+          {
+            userId: userInstance.id,
+            surveyId: survey.id,
+            status: Status.initial,
+          },
+          { transaction: t }
+        );
 
-        return survey;
+        if (questions.length > 0) {
+          await Question.bulkCreate(
+            questions.map((question) => ({
+              question,
+              userSurveyId: userSurvey.id,
+            })),
+            { transaction: t }
+          );
+        }
+
+        return { survey, userSurvey };
       });
     }
   }
@@ -62,6 +84,7 @@ export default (sequelize: Sequelize) => {
     {
       sequelize,
       modelName: 'Survey',
+      tableName: 'Surveys',
     }
   );
   return Survey;
