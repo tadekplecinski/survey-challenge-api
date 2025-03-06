@@ -23,6 +23,16 @@ export default (sequelize: Sequelize) => {
         primaryKey: true,
         type: DataTypes.INTEGER,
       },
+      userId: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        references: { model: 'Users', key: 'id' },
+      },
+      surveyId: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        references: { model: 'Surveys', key: 'id' },
+      },
       status: {
         type: DataTypes.ENUM('initial', 'draft', 'completed'),
         allowNull: false,

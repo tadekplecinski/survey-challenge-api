@@ -7,6 +7,11 @@ export class UserRole extends Model {
   static initModel(sequelize: Sequelize) {
     UserRole.init(
       {
+        id: {
+          type: DataTypes.INTEGER.UNSIGNED,
+          autoIncrement: true,
+          primaryKey: true,
+        },
         userId: {
           type: DataTypes.INTEGER,
           allowNull: false,

@@ -17,8 +17,8 @@ export default (sequelize: Sequelize) => {
     static associate(models: any) {
       this.belongsToMany(models.User, {
         through: models.UserSurvey,
-        // foreignKey: 'userId',
-        // otherKey: 'surveyId',
+        foreignKey: 'userId',
+        otherKey: 'surveyId',
       });
     }
   }

@@ -14,7 +14,11 @@ export class Role extends Model<
   declare role: string;
 
   static associate(models: any) {
-    this.belongsToMany(models.User, { through: models.UserRole });
+    this.belongsToMany(models.User, {
+      through: models.UserRole,
+      foreignKey: 'roleId',
+      otherKey: 'userId',
+    });
   }
 }
 
