@@ -13,6 +13,11 @@ export default {
       answer: {
         type: Sequelize.STRING,
       },
+      surveyId: {
+        type: Sequelize.INTEGER,
+        allowNull: false,
+        references: { model: 'Surveys', key: 'id' },
+      },
       createdAt: {
         allowNull: false,
         type: Sequelize.DATE,

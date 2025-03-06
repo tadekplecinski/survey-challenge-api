@@ -14,6 +14,7 @@ export default (sequelize: Sequelize) => {
     declare id: number;
     declare question: string;
     declare answer: string;
+    declare surveyId: string;
 
     static associate(models: any) {
       this.belongsTo(models.Survey);
@@ -29,6 +30,11 @@ export default (sequelize: Sequelize) => {
       },
       question: { type: DataTypes.STRING, allowNull: false },
       answer: { type: DataTypes.STRING }, // initially null
+      surveyId: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        references: { model: 'Surveys', key: 'id' },
+      },
     },
     {
       sequelize,
