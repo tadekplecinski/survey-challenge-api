@@ -5,12 +5,9 @@ import asyncWrapper from '../utils/async-wrapper.ts';
 import auth from '../middleware/auth.ts';
 import { UserSurvey } from '../models/userSurvey.ts';
 import { Question } from '../models/question.ts';
-import { User } from '../models/user.ts';
-import { Role } from '../models/role.ts';
-import { Survey } from '../models/survey.ts';
 
 const router = Router();
-// const { User, Survey, Role } = models as any;
+const { User, Survey, Role } = models as any;
 
 router.post(
   '/survey',
@@ -69,39 +66,30 @@ router.get(
       });
     }
 
-    const survey = await Survey.findOne({
+    const userSurvey = await UserSurvey.findOne({
       where: { id: surveyId },
       include: [
         {
-          model: UserSurvey,
-          where: { userId: user.id },
-          include: [
-            {
-              model: Question,
-              attributes: ['id', 'question', 'answer'],
-            },
-          ],
+          model: Survey,
+        },
+        {
+          model: Question,
+          attributes: ['id', 'question', 'answer'],
         },
       ],
     });
 
-    if (!survey) {
+    if (!userSurvey) {
       return res.status(404).send({
         success: false,
         message: 'Survey not found',
       });
     }
 
-    const userSurveys = await survey.getUserSurveys();
-    const questions = await userSurveys[0].getQuestions();
-
     return res.status(200).send({
       success: true,
       data: {
-        survey: {
-          title: survey.title,
-          questions,
-        },
+        userSurvey,
       },
     });
   })

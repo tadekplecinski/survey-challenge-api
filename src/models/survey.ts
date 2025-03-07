@@ -20,7 +20,6 @@ export class Survey extends Model<
   declare title: string;
 
   declare addUser: BelongsToManyAddAssociationsMixin<User, number>;
-  declare getUserSurveys: HasManyGetAssociationsMixin<UserSurvey>;
 
   static associate(models: any) {
     this.belongsToMany(models.User, {
