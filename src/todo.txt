@@ -1,0 +1,2 @@
+create a category
+when creating a survey potentially also create a category if it doesn't exist

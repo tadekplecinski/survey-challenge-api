@@ -6,6 +6,7 @@ import {
   InferCreationAttributes,
   CreationOptional,
   BelongsToManyAddAssociationsMixin,
+  HasManyGetAssociationsMixin,
 } from 'sequelize';
 import bcrypt from 'bcrypt';
 import { Role } from './role.ts';
@@ -20,6 +21,7 @@ export class User extends Model<
   declare userName: string;
 
   declare setRoles: BelongsToManyAddAssociationsMixin<Role, number>;
+  declare getRoles: HasManyGetAssociationsMixin<Role>;
 
   static associate(models: any) {
     this.belongsToMany(models.Role, {

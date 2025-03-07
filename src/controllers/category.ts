@@ -5,12 +5,9 @@ import asyncWrapper from '../utils/async-wrapper.ts';
 import auth from '../middleware/auth.ts';
 import { UserSurvey } from '../models/userSurvey.ts';
 import { Question } from '../models/question.ts';
-import { User } from '../models/user.ts';
-import { Role } from '../models/role.ts';
-import { Survey } from '../models/survey.ts';
 
 const router = Router();
-// const { User, Survey, Role } = models as any;
+const { User, Survey, Role } = models as any;
 
 router.post(
   '/survey',
@@ -25,9 +22,7 @@ router.post(
       include: Role,
     });
 
-    const roles = (await creator?.getRoles()!).map(
-      (role: any) => role.dataValues.role
-    );
+    const roles = creator?.Roles.map((role: any) => role.dataValues.role);
     if (!roles.includes('admin')) {
       return res
         .status(403)
@@ -92,8 +87,7 @@ router.get(
       });
     }
 
-    const userSurveys = await survey.getUserSurveys();
-    const questions = await userSurveys[0].getQuestions();
+    const questions = survey.dataValues.UserSurveys[0].Questions;
 
     return res.status(200).send({
       success: true,
