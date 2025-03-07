@@ -101,4 +101,58 @@ router.get(
   })
 );
 
+router.put(
+  '/survey/:id/answers',
+  auth,
+  asyncWrapper(async (req, res) => {
+    const requestorEmail = req.body.jwt.email;
+    const surveyId = req.params.id;
+    const answers = req.body.answers;
+
+    const user = await User.findOne({
+      where: { email: requestorEmail },
+      include: Role,
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found',
+      });
+    }
+
+    const userSurvey = await UserSurvey.findOne({
+      where: { surveyId, userId: user.id },
+    });
+
+    if (!userSurvey) {
+      return res.status(403).json({
+        success: false,
+        message: 'You are not assigned to this survey',
+      });
+    }
+
+    try {
+      const updatedSurvey = await Survey.updateSurveyAnswers({
+        userSurveyId: userSurvey.id,
+        answers,
+      });
+
+      return res.status(200).json({
+        success: true,
+        message: 'Survey answers updated successfully',
+        data: updatedSurvey,
+      });
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'An unknown error occurred';
+
+      return res.status(400).json({
+        success: false,
+        message: errorMessage,
+      });
+    }
+  })
+);
+
 export default router;
