@@ -11,6 +11,7 @@ import {
 import { User } from './user.ts';
 import { Status, UserSurvey } from './userSurvey.ts';
 import { Question } from './question.ts';
+import { Category } from './category.ts';
 
 export class Survey extends Model<
   InferAttributes<Survey>,
@@ -20,6 +21,7 @@ export class Survey extends Model<
   declare title: string;
 
   declare addUser: BelongsToManyAddAssociationsMixin<User, number>;
+  declare addCategories: BelongsToManyAddAssociationsMixin<Category, number>;
 
   static associate(models: any) {
     this.belongsToMany(models.User, {
@@ -32,6 +34,7 @@ export class Survey extends Model<
     this.belongsToMany(models.Category, {
       through: 'SurveyCategories',
       foreignKey: 'surveyId',
+      timestamps: false,
     });
   }
 
@@ -39,10 +42,12 @@ export class Survey extends Model<
     title,
     userId,
     questions,
+    categories,
   }: {
     title: string;
     userId: string;
     questions: string[];
+    categories: string[];
   }) {
     return Survey.sequelize!.transaction(async (t) => {
       const survey = await Survey.create({ title }, { transaction: t });
@@ -73,6 +78,18 @@ export class Survey extends Model<
         );
       }
 
+      const categoryInstances = await Category.findAll({
+        where: {
+          name: categories,
+        },
+      });
+
+      if (categoryInstances.length !== categories.length) {
+        throw new Error('Some categories do not exist');
+      }
+
+      await survey.addCategories(categoryInstances, { transaction: t });
+
       return {
         title: survey.title,
         userSurveyId: userSurvey.id,
@@ -80,6 +97,10 @@ export class Survey extends Model<
         questions: createdQuestions.map(({ id, question }) => ({
           id,
           question,
+        })),
+        categories: categoryInstances.map(({ id, name }) => ({
+          id,
+          name,
         })),
       };
     });

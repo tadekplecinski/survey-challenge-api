@@ -25,14 +25,6 @@ export default {
         },
         onDelete: 'CASCADE',
       },
-      createdAt: {
-        allowNull: false,
-        type: DataTypes.DATE,
-      },
-      updatedAt: {
-        allowNull: false,
-        type: DataTypes.DATE,
-      },
     });
   },
 

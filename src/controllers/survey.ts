@@ -14,8 +14,7 @@ router.post(
   auth,
   asyncWrapper(async (req, res) => {
     const creatorEmail = req.body.jwt.email;
-    const targetUserId = req.body.userId;
-    const questions = req.body.questions;
+    const { userId: targetUserId, questions, categories } = req.body;
 
     const creator = await User.findOne({
       where: { email: creatorEmail },
@@ -35,6 +34,7 @@ router.post(
       userId: targetUserId,
       title: req.body.title,
       questions,
+      categories,
     });
 
     return res.status(200).send({
@@ -95,6 +95,7 @@ router.get(
   })
 );
 
+// route to fill out the survey (for invited users - who can see it)
 router.put(
   '/survey/:id/answers',
   auth,
@@ -148,5 +149,10 @@ router.put(
     }
   })
 );
+
+// TODO: get all surveys
+// get surveys filterd by...
+// update survey
+// seed categories and users
 
 export default router;

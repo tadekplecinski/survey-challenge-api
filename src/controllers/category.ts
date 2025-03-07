@@ -5,17 +5,16 @@ import asyncWrapper from '../utils/async-wrapper.ts';
 import auth from '../middleware/auth.ts';
 import { UserSurvey } from '../models/userSurvey.ts';
 import { Question } from '../models/question.ts';
+import { Category } from '../models/category.ts';
 
 const router = Router();
 const { User, Survey, Role } = models as any;
 
 router.post(
-  '/survey',
+  '/category',
   auth,
   asyncWrapper(async (req, res) => {
     const creatorEmail = req.body.jwt.email;
-    const targetUserId = req.body.userId;
-    const questions = req.body.questions;
 
     const creator = await User.findOne({
       where: { email: creatorEmail },
@@ -29,24 +28,39 @@ router.post(
         .json({ message: 'Forbidden: You do not have admin rights.' });
     }
 
-    const survey = await Survey.createNewSurvey({
-      userId: targetUserId,
-      title: req.body.title,
-      questions,
-    });
+    const { name, description, status } = req.body;
 
-    return res.status(200).send({
-      success: true,
-      message: 'Survey created successfully',
-      data: {
-        survey,
-      },
-    });
+    if (!name) {
+      return res
+        .status(400)
+        .json({ success: false, message: 'Category name is required' });
+    }
+
+    try {
+      const category = await Category.create({
+        name,
+        description,
+        status,
+      });
+
+      return res.status(201).json({
+        success: true,
+        message: 'Category created successfully',
+        data: category,
+      });
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'An unknown error occurred';
+      return res.status(500).json({
+        success: false,
+        message: errorMessage,
+      });
+    }
   })
 );
 
 router.get(
-  '/survey/:id',
+  '/category/:id',
   auth,
   asyncWrapper(async (req, res) => {
     const requestorEmail = req.body.jwt.email;

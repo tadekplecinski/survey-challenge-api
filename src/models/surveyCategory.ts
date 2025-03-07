@@ -45,7 +45,7 @@ export default (sequelize: Sequelize) => {
       sequelize,
       modelName: 'SurveyCategory',
       tableName: 'SurveyCategories',
-      timestamps: false, // ✅ Since it's a join table, no need for createdAt/updatedAt
+      timestamps: false,
     }
   );
 
