@@ -52,38 +52,49 @@ router.get(
     const requestorEmail = req.body.jwt.email;
     const surveyId = req.params.id;
 
-    const { id: requestorId } = await User.findOne({
+    const user = await User.findOne({
       where: { email: requestorEmail },
       include: Role,
     });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found',
+      });
+    }
 
     const survey = await Survey.findOne({
       where: { id: surveyId },
       include: [
         {
           model: UserSurvey,
-          where: { userId: requestorId },
+          where: { userId: user.id },
           include: [
             {
               model: Question,
+              attributes: ['id', 'question', 'answer'],
             },
           ],
         },
       ],
     });
 
-    console.log('survey', survey.dataValues.UserSurveys[0].Questions);
-
     if (!survey) {
-      return res.status(200).send({});
+      return res.status(404).send({
+        success: false,
+        message: 'Survey not found',
+      });
     }
+
+    const questions = survey.dataValues.UserSurveys[0].Questions;
 
     return res.status(200).send({
       success: true,
       data: {
         survey: {
           title: survey.title,
-          // TODO: Include associated questions
+          questions,
         },
       },
     });
