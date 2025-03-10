@@ -2,9 +2,9 @@ export default {
   async up(queryInterface, Sequelize) {
     await queryInterface.createTable('UserSurveys', {
       id: {
+        primaryKey: true,
         allowNull: false,
         autoIncrement: true,
-        primaryKey: true,
         type: Sequelize.INTEGER,
       },
       userId: {
@@ -30,6 +30,12 @@ export default {
         allowNull: false,
         type: Sequelize.DATE,
       },
+    });
+
+    await queryInterface.addConstraint('UserSurveys', {
+      fields: ['userId', 'surveyId'],
+      type: 'unique',
+      name: 'uq_userSurvey_userId_surveyId',
     });
   },
   async down(queryInterface) {

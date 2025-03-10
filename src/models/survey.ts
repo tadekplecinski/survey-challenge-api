@@ -8,7 +8,7 @@ import {
   BelongsToManyAddAssociationsMixin,
 } from 'sequelize';
 import { User } from './user.ts';
-import { UserSurveyStatus, UserSurvey } from './userSurvey.ts';
+import { UserSurvey } from './userSurvey.ts';
 import { Question } from './question.ts';
 import { Category } from './category.ts';
 
@@ -67,18 +67,6 @@ export class Survey extends Model<
         throw new Error('Survey must be associated with a user');
       }
 
-      // survey can be created independently of user survey!!!!
-      // questions are now related one-to-many to survey!!!! not user-survey
-
-      // const userSurvey = await UserSurvey.create(
-      //   {
-      //     userId: userInstance.id,
-      //     surveyId: survey.id,
-      //     status: Status.initial,
-      //   },
-      //   { transaction: t }
-      // );
-
       let createdQuestions: Question[] = [];
 
       if (questions.length > 0) {
@@ -102,6 +90,12 @@ export class Survey extends Model<
       }
 
       await survey.addCategories(categoryInstances, { transaction: t });
+
+      // right away associate the new survey with the (first) user
+      await UserSurvey.create({
+        userId: +userId,
+        surveyId: survey.id,
+      });
 
       return {
         title: survey.title,
