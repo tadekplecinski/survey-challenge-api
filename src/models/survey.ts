@@ -6,12 +6,16 @@ import {
   InferCreationAttributes,
   CreationOptional,
   BelongsToManyAddAssociationsMixin,
-  HasManyGetAssociationsMixin,
 } from 'sequelize';
 import { User } from './user.ts';
-import { Status, UserSurvey } from './userSurvey.ts';
+import { UserSurveyStatus, UserSurvey } from './userSurvey.ts';
 import { Question } from './question.ts';
 import { Category } from './category.ts';
+
+export enum SurveyStatus {
+  DRAFT = 'Draft',
+  PUBLISHED = 'Published',
+}
 
 export class Survey extends Model<
   InferAttributes<Survey>,
@@ -19,6 +23,7 @@ export class Survey extends Model<
 > {
   declare id: CreationOptional<number>;
   declare title: string;
+  declare status: CreationOptional<SurveyStatus>;
 
   declare addUser: BelongsToManyAddAssociationsMixin<User, number>;
   declare addCategories: BelongsToManyAddAssociationsMixin<Category, number>;
@@ -57,14 +62,17 @@ export class Survey extends Model<
         throw new Error('Survey must be associated with a user');
       }
 
-      const userSurvey = await UserSurvey.create(
-        {
-          userId: userInstance.id,
-          surveyId: survey.id,
-          status: Status.initial,
-        },
-        { transaction: t }
-      );
+      // survey can be created independently of user survey!!!!
+      // questions are now related one-to-many to survey!!!! not user-survey
+
+      // const userSurvey = await UserSurvey.create(
+      //   {
+      //     userId: userInstance.id,
+      //     surveyId: survey.id,
+      //     status: Status.initial,
+      //   },
+      //   { transaction: t }
+      // );
 
       let createdQuestions: Question[] = [];
 
@@ -72,7 +80,7 @@ export class Survey extends Model<
         createdQuestions = await Question.bulkCreate(
           questions.map((question) => ({
             question,
-            userSurveyId: userSurvey.id,
+            surveyId: survey.id,
           })),
           { transaction: t }
         );
@@ -92,8 +100,7 @@ export class Survey extends Model<
 
       return {
         title: survey.title,
-        userSurveyId: userSurvey.id,
-        status: userSurvey.status,
+        status: survey.status,
         questions: createdQuestions.map(({ id, question }) => ({
           id,
           question,
@@ -102,64 +109,6 @@ export class Survey extends Model<
           id,
           name,
         })),
-      };
-    });
-  }
-
-  static async updateSurveyAnswers({
-    userSurveyId,
-    answers,
-  }: {
-    userSurveyId: number;
-    answers: { questionId: number; answer: string }[];
-  }) {
-    return Survey.sequelize!.transaction(async (t) => {
-      // Fetch the UserSurvey instance
-      const userSurvey = await UserSurvey.findByPk(userSurveyId, {
-        transaction: t,
-      });
-
-      if (!userSurvey) {
-        throw new Error('UserSurvey not found');
-      }
-
-      // ✅ Now get associated questions using Sequelize association
-      const questions = await Question.findAll({
-        where: { userSurveyId },
-        transaction: t,
-      });
-
-      if (questions.length !== answers.length) {
-        throw new Error('All questions must have an answer');
-      }
-
-      // Ensure all answers are provided and non-empty
-      const answerMap = new Map(
-        answers.map(({ questionId, answer }) => [questionId, answer.trim()])
-      );
-
-      for (const question of questions) {
-        if (!answerMap.has(question.id) || answerMap.get(question.id) === '') {
-          throw new Error(
-            `Answer for question ID ${question.id} is missing or empty`
-          );
-        }
-      }
-
-      // Update answers
-      await Promise.all(
-        questions.map((question) =>
-          question.update(
-            { answer: answerMap.get(question.id) },
-            { transaction: t }
-          )
-        )
-      );
-
-      return {
-        userSurveyId,
-        status: 'completed',
-        updatedAnswers: answers,
       };
     });
   }
@@ -175,6 +124,11 @@ export default (sequelize: Sequelize) => {
         allowNull: false,
       },
       title: { type: DataTypes.STRING, allowNull: false },
+      status: {
+        type: DataTypes.ENUM(...Object.values(SurveyStatus)),
+        allowNull: false,
+        defaultValue: SurveyStatus.DRAFT,
+      },
     },
     {
       sequelize,

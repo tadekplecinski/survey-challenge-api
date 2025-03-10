@@ -10,25 +10,14 @@ export default {
       question: {
         type: Sequelize.STRING,
       },
-      answer: {
-        type: Sequelize.STRING,
-      },
-      userSurveyId: {
+      surveyId: {
         type: Sequelize.INTEGER,
         allowNull: false,
-        references: { model: 'UserSurveys', key: 'id' },
-      },
-      createdAt: {
-        allowNull: false,
-        type: Sequelize.DATE,
-      },
-      updatedAt: {
-        allowNull: false,
-        type: Sequelize.DATE,
+        references: { model: 'Surveys', key: 'id' },
       },
     });
   },
-  async down(queryInterface, Sequelize) {
+  async down(queryInterface) {
     await queryInterface.dropTable('Questions');
   },
 };

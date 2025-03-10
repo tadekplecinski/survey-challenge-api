@@ -5,11 +5,13 @@ import {
   InferAttributes,
   InferCreationAttributes,
   CreationOptional,
-  BelongsToManyAddAssociationsMixin,
-  HasManyGetAssociationsMixin,
 } from 'sequelize';
 import bcrypt from 'bcrypt';
-import { Role } from './role.ts';
+
+export enum UserRole {
+  ADMIN = 'admin',
+  USER = 'user',
+}
 
 export class User extends Model<
   InferAttributes<User>,
@@ -19,16 +21,9 @@ export class User extends Model<
   declare email: string;
   declare password: string;
   declare userName: string;
-
-  declare setRoles: BelongsToManyAddAssociationsMixin<Role, number>;
-  declare getRoles: HasManyGetAssociationsMixin<Role>;
+  declare role: UserRole;
 
   static associate(models: any) {
-    this.belongsToMany(models.Role, {
-      through: models.UserRole,
-      foreignKey: 'userId',
-    });
-
     this.belongsToMany(models.Survey, {
       through: models.UserSurvey,
       foreignKey: 'userId',
@@ -44,26 +39,19 @@ export class User extends Model<
   static async createNewUser({
     email,
     password,
-    roles,
     userName,
+    role,
   }: {
     email: string;
     password: string;
-    roles: string[];
+    role: UserRole;
     userName: string;
   }) {
     return User.sequelize!.transaction(async (t) => {
       const user = await User.create(
-        { email, password, userName },
+        { email, password, userName, role },
         { transaction: t }
       );
-
-      const roleInstances = await Role.findAll({
-        where: { role: roles },
-        transaction: t,
-      });
-
-      await user.setRoles(roleInstances, { transaction: t });
 
       return user;
     });
@@ -109,6 +97,10 @@ export default (sequelize: Sequelize) => {
             msg: 'Username must contain between 2 and 50 characters',
           },
         },
+      },
+      role: {
+        type: DataTypes.ENUM(UserRole.USER, UserRole.ADMIN),
+        defaultValue: UserRole.USER,
       },
     },
     {

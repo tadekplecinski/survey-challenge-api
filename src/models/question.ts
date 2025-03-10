@@ -13,11 +13,10 @@ export class Question extends Model<
 > {
   declare id: CreationOptional<number>;
   declare question: string;
-  declare answer?: string;
-  declare userSurveyId: number;
+  declare surveyId: number;
 
   static associate(models: any) {
-    this.belongsTo(models.UserSurvey, { foreignKey: 'userSurveyId' });
+    this.belongsTo(models.Survey, { foreignKey: 'surveyId' });
   }
 }
 
@@ -31,16 +30,16 @@ export default (sequelize: Sequelize) => {
         type: DataTypes.INTEGER,
       },
       question: { type: DataTypes.STRING },
-      answer: { type: DataTypes.STRING }, // initially null
-      userSurveyId: {
+      surveyId: {
         type: DataTypes.INTEGER,
         allowNull: false,
-        references: { model: 'UserSurveys', key: 'id' },
+        references: { model: 'Surveys', key: 'id' },
       },
     },
     {
       sequelize,
       modelName: 'Question',
+      timestamps: false,
     }
   );
   return Question;
