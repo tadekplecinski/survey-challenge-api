@@ -13,8 +13,8 @@ import { Question } from './question.ts';
 import { Category } from './category.ts';
 
 export enum SurveyStatus {
-  DRAFT = 'Draft',
-  PUBLISHED = 'Published',
+  DRAFT = 'draft',
+  PUBLISHED = 'published',
 }
 
 export class Survey extends Model<
@@ -39,7 +39,12 @@ export class Survey extends Model<
     this.belongsToMany(models.Category, {
       through: 'SurveyCategories',
       foreignKey: 'surveyId',
+      otherKey: 'categoryId',
       timestamps: false,
+    });
+
+    this.hasMany(models.Question, {
+      foreignKey: 'surveyId',
     });
   }
 
@@ -125,7 +130,7 @@ export default (sequelize: Sequelize) => {
       },
       title: { type: DataTypes.STRING, allowNull: false },
       status: {
-        type: DataTypes.ENUM(...Object.values(SurveyStatus)),
+        type: DataTypes.ENUM(SurveyStatus.DRAFT, SurveyStatus.PUBLISHED),
         allowNull: false,
         defaultValue: SurveyStatus.DRAFT,
       },

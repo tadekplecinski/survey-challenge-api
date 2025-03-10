@@ -29,6 +29,7 @@ export class Category extends Model<
     this.belongsToMany(models.Survey, {
       through: models.SurveyCategory,
       foreignKey: 'categoryId',
+      otherKey: 'surveyId',
       timestamps: false,
     });
   }

@@ -112,6 +112,7 @@ export default (sequelize: Sequelize) => {
           attributes: { include: ['password'] },
         },
       },
+      timestamps: false,
     }
   );
 

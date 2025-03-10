@@ -1,5 +1,4 @@
 import { hashSync } from 'bcrypt';
-import { UserRole } from '../../models/user.ts';
 
 export default {
   async up(queryInterface) {
@@ -29,17 +28,13 @@ export default {
           email: 'admin@example.com',
           password: hashSync('password123', 10),
           userName: 'adminUser',
-          createdAt: new Date(),
-          updatedAt: new Date(),
-          role: UserRole.ADMIN,
+          role: 'admin',
         },
         {
           email: 'user@example.com',
           password: hashSync('password123', 10),
           userName: 'regularUser',
-          createdAt: new Date(),
-          updatedAt: new Date(),
-          role: UserRole.USER,
+          role: 'user',
         },
       ],
       { returning: true }
@@ -47,9 +42,7 @@ export default {
   },
 
   async down(queryInterface) {
-    await queryInterface.bulkDelete('UserRoles', {});
     await queryInterface.bulkDelete('Users', {});
-    await queryInterface.bulkDelete('Roles', {});
     await queryInterface.bulkDelete('Categories', {});
   },
 };

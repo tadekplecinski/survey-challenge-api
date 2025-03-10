@@ -8,7 +8,7 @@ import { Question } from '../models/question.ts';
 import { Answer } from '../models/answer.ts';
 
 const router = Router();
-const { User, Survey, Role } = models as any;
+const { User, Survey } = models as any;
 
 router.post(
   '/survey',
@@ -19,13 +19,9 @@ router.post(
 
     const creator = await User.findOne({
       where: { email: creatorEmail },
-      include: Role,
     });
 
-    const roles = (await creator?.getRoles()!).map(
-      (role: any) => role.dataValues.role
-    );
-    if (!roles.includes('admin')) {
+    if (creator.role !== 'admin') {
       return res
         .status(403)
         .json({ message: 'Forbidden: You do not have admin rights.' });
@@ -60,7 +56,6 @@ router.get(
 
     const user = await User.findOne({
       where: { email: requestorEmail },
-      include: Role,
     });
 
     if (!user) {
@@ -70,16 +65,44 @@ router.get(
       });
     }
 
+    const isAdmin = user.role === 'admin';
+
+    if (isAdmin) {
+      const survey = await Survey.findOne({
+        where: { id: surveyId },
+        // UserSurvey should give us a list of all surveys related to this one, e.g. count
+        include: [Question, UserSurvey],
+      });
+
+      if (!survey) {
+        return res.status(404).send({
+          success: false,
+          message: 'Survey not found',
+        });
+      }
+
+      return res.status(200).send({
+        success: true,
+        data: {
+          survey,
+        },
+      });
+    }
+
+    // TODO: test this, but need a filled out survey first...
     const userSurvey = await UserSurvey.findOne({
       where: { id: surveyId },
       include: [
         {
           model: Survey,
+          include: [
+            {
+              model: Question,
+              attributes: ['id', 'question'],
+            },
+          ],
         },
-        {
-          model: Question,
-          attributes: ['id', 'question', 'answer'],
-        },
+        Answer,
       ],
     });
 
@@ -99,6 +122,49 @@ router.get(
   })
 );
 
+router.post(
+  '/survey/:id/invite',
+  auth,
+  asyncWrapper(async (req, res) => {
+    const requestorEmail = req.body.jwt.email;
+    const inviteeEmail = req.body.inviteeEmail;
+    const surveyId = req.params.id;
+
+    const user = await User.findOne({
+      where: { email: requestorEmail },
+    });
+
+    if (user.role !== 'admin') {
+      return res.status(404).json({
+        success: false,
+        message: 'Only admin can invite a user to a survey',
+      });
+    }
+
+    const invitee = await User.findOne({
+      where: { email: inviteeEmail },
+    });
+
+    if (!invitee) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found',
+      });
+    }
+
+    const userSurvey = await UserSurvey.create({
+      userId: invitee.id,
+      surveyId: +surveyId,
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'User invited to a survey',
+      userSurvey,
+    });
+  })
+);
+
 // route to fill out the survey (for invited users - who can see it)
 router.post(
   '/survey/:id/answers',
@@ -106,17 +172,23 @@ router.post(
   asyncWrapper(async (req, res) => {
     const requestorEmail = req.body.jwt.email;
     const surveyId = req.params.id;
-    const answers: { answer: string; questionId: number }[] = req.body.answers; // {answer: string; questionId: number}
+    const answers: { answer: string; questionId: number }[] = req.body.answers;
 
     const user = await User.findOne({
       where: { email: requestorEmail },
-      include: Role,
     });
 
     if (!user) {
       return res.status(404).json({
         success: false,
         message: 'User not found',
+      });
+    }
+
+    if (user.role === 'admin') {
+      return res.status(404).json({
+        success: false,
+        message: 'Admins cannot fill out surveys',
       });
     }
 

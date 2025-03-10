@@ -20,13 +20,9 @@ export default {
         type: DataTypes.STRING(50),
         unique: true,
       },
-      createdAt: {
-        allowNull: false,
-        type: DataTypes.DATE,
-      },
-      updatedAt: {
-        allowNull: false,
-        type: DataTypes.DATE,
+      role: {
+        type: DataTypes.ENUM('user', 'admin'),
+        defaultValue: 'user',
       },
     });
   },

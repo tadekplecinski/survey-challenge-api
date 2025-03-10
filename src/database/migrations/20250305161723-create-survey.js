@@ -11,6 +11,11 @@ export default {
         type: Sequelize.STRING,
         allowNull: false,
       },
+      status: {
+        type: Sequelize.ENUM('draft', 'published'),
+        allowNull: false,
+        defaultValue: 'draft',
+      },
       createdAt: {
         allowNull: false,
         type: Sequelize.DATE,

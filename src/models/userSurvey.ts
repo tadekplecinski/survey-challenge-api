@@ -9,7 +9,7 @@ import {
 
 export enum UserSurveyStatus {
   'initial' = 'initial', // user was invited to take the survey
-  'draft' = 'draft',
+  'draft' = 'draft', // for saving a survey before submitting
   'completed' = 'completed',
 }
 
@@ -20,7 +20,7 @@ export class UserSurvey extends Model<
   declare id: CreationOptional<number>;
   declare userId: number;
   declare surveyId: number;
-  declare status: UserSurveyStatus;
+  declare status: CreationOptional<UserSurveyStatus>;
 
   static associate(models: any) {
     this.belongsTo(models.User, { foreignKey: 'userId' });

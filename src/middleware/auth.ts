@@ -2,7 +2,6 @@ import { Request, Response, NextFunction } from 'express';
 
 import JWTUtils from '../utils/jwt-utils.ts';
 
-// export default function requiresAuth() {
 export default function (req: Request, res: Response, next: NextFunction) {
   const authHeader = req.headers.authorization;
 
@@ -37,4 +36,3 @@ export default function (req: Request, res: Response, next: NextFunction) {
     return;
   }
 }
-// }
