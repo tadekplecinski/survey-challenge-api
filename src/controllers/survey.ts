@@ -1,12 +1,14 @@
 import { Router } from 'express';
+import { Op } from 'sequelize';
 
 import asyncWrapper from '../utils/async-wrapper.ts';
 import auth from '../middleware/auth.ts';
-import { UserSurvey } from '../models/userSurvey.ts';
+import { UserSurvey, UserSurveyStatus } from '../models/userSurvey.ts';
 import { Question } from '../models/question.ts';
 import { Answer } from '../models/answer.ts';
 import { User } from '../models/user.ts';
 import { Survey } from '../models/survey.ts';
+import { Category } from '../models/category.ts';
 
 const router = Router();
 
@@ -240,6 +242,13 @@ router.post(
       });
     }
 
+    if (userSurvey.status === UserSurveyStatus.completed) {
+      return res.status(403).json({
+        success: false,
+        message: 'This survey cannot be edited anymore',
+      });
+    }
+
     try {
       await Answer.bulkCreate(
         answers.map((a) => ({
@@ -262,6 +271,75 @@ router.post(
         message: errorMessage,
       });
     }
+  })
+);
+
+router.get(
+  '/surveys',
+  auth,
+  asyncWrapper(async (req, res) => {
+    try {
+      const requestorEmail = req.body.jwt.email;
+      const user = await User.findOne({
+        where: { email: requestorEmail },
+      });
+
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: 'User not found',
+        });
+      }
+
+      const { title, categoryId, status } = req.query;
+
+      const filters: any = {};
+
+      if (title) {
+        filters.title = { [Op.iLike]: `%${title}%` };
+      }
+
+      if (status && ['draft', 'completed'].includes(status as string)) {
+        filters.status = status;
+      }
+
+      if (user.role === 'admin') {
+        const categoryFilter = categoryId
+          ? {
+              model: Category,
+              as: 'categories',
+              where: { id: categoryId },
+              attributes: ['id', 'name'],
+              through: { attributes: [] },
+            }
+          : {
+              model: Category,
+              as: 'categories',
+              attributes: ['id', 'name'],
+              through: { attributes: [] },
+            };
+
+        const surveys = await Survey.findAndCountAll({
+          where: filters,
+          include: [categoryFilter],
+          order: [['createdAt', 'DESC']],
+        });
+
+        return res.status(200).json({
+          success: true,
+          data: surveys.rows,
+          total: surveys.count,
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching surveys:', error);
+      return res
+        .status(500)
+        .json({ success: false, message: 'Internal Server Error' });
+    }
+
+    // TODO:
+    // get all USER surveys
   })
 );
 

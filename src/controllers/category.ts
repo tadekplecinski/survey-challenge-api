@@ -1,14 +1,14 @@
 import { Router } from 'express';
-import models from '../models/index.js';
 
 import asyncWrapper from '../utils/async-wrapper.ts';
 import auth from '../middleware/auth.ts';
 import { UserSurvey } from '../models/userSurvey.ts';
 import { Question } from '../models/question.ts';
 import { Category } from '../models/category.ts';
+import { User } from '../models/user.ts';
+import { Survey } from '../models/survey.ts';
 
 const router = Router();
-const { User, Survey, Role } = models as any;
 
 router.post(
   '/category',
@@ -18,11 +18,16 @@ router.post(
 
     const creator = await User.findOne({
       where: { email: creatorEmail },
-      include: Role,
     });
 
-    const roles = creator?.Roles.map((role: any) => role.dataValues.role);
-    if (!roles.includes('admin')) {
+    if (!creator) {
+      return res.status(404).send({
+        success: false,
+        message: 'User not found',
+      });
+    }
+
+    if (creator.role !== 'admin') {
       return res
         .status(403)
         .json({ message: 'Forbidden: You do not have admin rights.' });
@@ -68,7 +73,6 @@ router.get(
 
     const user = await User.findOne({
       where: { email: requestorEmail },
-      include: Role,
     });
 
     if (!user) {
@@ -101,7 +105,7 @@ router.get(
       });
     }
 
-    const questions = survey.dataValues.UserSurveys[0].Questions;
+    const questions = survey.getQuestions();
 
     return res.status(200).send({
       success: true,
@@ -112,60 +116,6 @@ router.get(
         },
       },
     });
-  })
-);
-
-router.put(
-  '/survey/:id/answers',
-  auth,
-  asyncWrapper(async (req, res) => {
-    const requestorEmail = req.body.jwt.email;
-    const surveyId = req.params.id;
-    const answers = req.body.answers;
-
-    const user = await User.findOne({
-      where: { email: requestorEmail },
-      include: Role,
-    });
-
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'User not found',
-      });
-    }
-
-    const userSurvey = await UserSurvey.findOne({
-      where: { surveyId, userId: user.id },
-    });
-
-    if (!userSurvey) {
-      return res.status(403).json({
-        success: false,
-        message: 'You are not assigned to this survey',
-      });
-    }
-
-    try {
-      const updatedSurvey = await Survey.updateSurveyAnswers({
-        userSurveyId: userSurvey.id,
-        answers,
-      });
-
-      return res.status(200).json({
-        success: true,
-        message: 'Survey answers updated successfully',
-        data: updatedSurvey,
-      });
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : 'An unknown error occurred';
-
-      return res.status(400).json({
-        success: false,
-        message: errorMessage,
-      });
-    }
   })
 );
 

@@ -47,6 +47,7 @@ export class Survey extends Model<
       foreignKey: 'surveyId',
       otherKey: 'categoryId',
       timestamps: false,
+      as: 'categories',
     });
 
     this.hasMany(models.Question, {

@@ -9,9 +9,8 @@ import {
 import { User } from './user.ts';
 
 export enum UserSurveyStatus {
-  'initial' = 'initial', // user was invited to take the survey
-  'draft' = 'draft', // for saving a survey before submitting
-  'completed' = 'completed',
+  'draft' = 'draft', // initial status when user is invited, can be saved
+  'completed' = 'completed', // user no longer can interact with the survey (answer questions)
 }
 
 export class UserSurvey extends Model<
@@ -53,7 +52,7 @@ export default (sequelize: Sequelize) => {
       status: {
         type: DataTypes.ENUM(...Object.values(UserSurveyStatus)),
         allowNull: false,
-        defaultValue: UserSurveyStatus.initial,
+        defaultValue: UserSurveyStatus.draft,
       },
     },
     {
