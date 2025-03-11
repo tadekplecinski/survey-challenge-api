@@ -6,6 +6,7 @@ import {
   InferCreationAttributes,
   CreationOptional,
 } from 'sequelize';
+import { User } from './user.ts';
 
 export enum UserSurveyStatus {
   'initial' = 'initial', // user was invited to take the survey
@@ -21,6 +22,7 @@ export class UserSurvey extends Model<
   declare userId: number;
   declare surveyId: number;
   declare status: CreationOptional<UserSurveyStatus>;
+  declare User?: User;
 
   static associate(models: any) {
     this.belongsTo(models.User, { foreignKey: 'userId' });

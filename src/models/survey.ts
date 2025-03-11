@@ -6,6 +6,8 @@ import {
   InferCreationAttributes,
   CreationOptional,
   BelongsToManyAddAssociationsMixin,
+  HasManyGetAssociationsMixin,
+  BelongsToManyGetAssociationsMixin,
 } from 'sequelize';
 import { User } from './user.ts';
 import { UserSurvey } from './userSurvey.ts';
@@ -27,6 +29,10 @@ export class Survey extends Model<
 
   declare addUser: BelongsToManyAddAssociationsMixin<User, number>;
   declare addCategories: BelongsToManyAddAssociationsMixin<Category, number>;
+
+  declare getQuestions: HasManyGetAssociationsMixin<Question>;
+  declare getUserSurveys: HasManyGetAssociationsMixin<UserSurvey>;
+  declare getUsers: BelongsToManyGetAssociationsMixin<User>;
 
   static associate(models: any) {
     this.belongsToMany(models.User, {

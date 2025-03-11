@@ -1,14 +1,14 @@
 import { Router } from 'express';
-import models from '../models/index.js';
 
 import asyncWrapper from '../utils/async-wrapper.ts';
 import auth from '../middleware/auth.ts';
 import { UserSurvey } from '../models/userSurvey.ts';
 import { Question } from '../models/question.ts';
 import { Answer } from '../models/answer.ts';
+import { User } from '../models/user.ts';
+import { Survey } from '../models/survey.ts';
 
 const router = Router();
-const { User, Survey } = models as any;
 
 router.post(
   '/survey',
@@ -20,6 +20,13 @@ router.post(
     const creator = await User.findOne({
       where: { email: creatorEmail },
     });
+
+    if (!creator) {
+      return res.status(404).send({
+        success: false,
+        message: 'User not found',
+      });
+    }
 
     if (creator.role !== 'admin') {
       return res
@@ -44,9 +51,6 @@ router.post(
   })
 );
 
-// TODO:
-// for admin we fetch a survey which can be edited (if draft)
-// for user we fetch a survey (from userSurveys) to be filled out
 router.get(
   '/survey/:id',
   auth,
@@ -67,12 +71,35 @@ router.get(
 
     const isAdmin = user.role === 'admin';
 
+    // admin path
     if (isAdmin) {
       const survey = await Survey.findOne({
         where: { id: surveyId },
-        // UserSurvey should give us a list of all surveys related to this one, e.g. count
-        include: [Question, UserSurvey],
+        include: [
+          { model: Question },
+          {
+            model: UserSurvey,
+            include: [{ model: User }],
+          },
+        ],
       });
+
+      if (!survey) {
+        return res.status(404).send({
+          success: false,
+          message: 'Survey not found',
+        });
+      }
+
+      const questionsCount = (await survey.getQuestions()).length;
+      const userSurveys = await survey.getUserSurveys({
+        include: [{ model: User, attributes: ['email'] }],
+      });
+      const surveysCount = userSurveys.length;
+
+      const invitedUsersEmails = userSurveys.map(
+        (userSurvey) => userSurvey.User!.email
+      );
 
       if (!survey) {
         return res.status(404).send({
@@ -85,13 +112,16 @@ router.get(
         success: true,
         data: {
           survey,
+          surveysCount,
+          questionsCount,
+          invitedUsersEmails,
         },
       });
     }
 
-    // TODO: test this, but need a filled out survey first...
+    // regular user path
     const userSurvey = await UserSurvey.findOne({
-      where: { id: surveyId },
+      where: { id: surveyId, userId: user.id },
       include: [
         {
           model: Survey,
@@ -133,6 +163,13 @@ router.post(
     const user = await User.findOne({
       where: { email: requestorEmail },
     });
+
+    if (!user) {
+      return res.status(404).send({
+        success: false,
+        message: 'User not found',
+      });
+    }
 
     if (user.role !== 'admin') {
       return res.status(404).json({
