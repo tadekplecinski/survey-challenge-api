@@ -32,7 +32,7 @@ export class Survey extends Model<
 
   declare getQuestions: HasManyGetAssociationsMixin<Question>;
   declare getUserSurveys: HasManyGetAssociationsMixin<UserSurvey>;
-  declare getUsers: BelongsToManyGetAssociationsMixin<User>;
+  declare setCategories: (categories: any[]) => Promise<void>;
 
   static associate(models: any) {
     this.belongsToMany(models.User, {
@@ -52,6 +52,7 @@ export class Survey extends Model<
 
     this.hasMany(models.Question, {
       foreignKey: 'surveyId',
+      as: 'questions',
     });
   }
 

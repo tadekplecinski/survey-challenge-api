@@ -23,17 +23,11 @@ router.post(
       where: { email: creatorEmail },
     });
 
-    if (!creator) {
-      return res.status(404).send({
+    if (!creator || creator.role !== 'admin') {
+      return res.status(403).send({
         success: false,
-        message: 'User not found',
+        message: 'Permission denied',
       });
-    }
-
-    if (creator.role !== 'admin') {
-      return res
-        .status(403)
-        .json({ message: 'Forbidden: You do not have admin rights.' });
     }
 
     const survey = await Survey.createNewSurvey({
@@ -78,7 +72,7 @@ router.get(
       const survey = await Survey.findOne({
         where: { id: surveyId },
         include: [
-          { model: Question },
+          { model: Question, as: 'questions' },
           {
             model: UserSurvey,
             include: [{ model: User }],
@@ -130,6 +124,7 @@ router.get(
           include: [
             {
               model: Question,
+              as: 'questions',
               attributes: ['id', 'question'],
             },
           ],
@@ -166,17 +161,10 @@ router.post(
       where: { email: requestorEmail },
     });
 
-    if (!user) {
-      return res.status(404).send({
+    if (!user || user.role !== 'admin') {
+      return res.status(403).json({
         success: false,
-        message: 'User not found',
-      });
-    }
-
-    if (user.role !== 'admin') {
-      return res.status(404).json({
-        success: false,
-        message: 'Only admin can invite a user to a survey',
+        message: 'Permission denied',
       });
     }
 
@@ -205,29 +193,23 @@ router.post(
 );
 
 // route to fill out the survey (for invited users - who can see it)
-router.post(
+router.put(
   '/survey/:id/answers',
   auth,
   asyncWrapper(async (req, res) => {
     const requestorEmail = req.body.jwt.email;
     const surveyId = req.params.id;
-    const answers: { answer: string; questionId: number }[] = req.body.answers;
+    const answers: { answer: string; answerId?: number; questionId: number }[] =
+      req.body.answers;
 
     const user = await User.findOne({
       where: { email: requestorEmail },
     });
 
-    if (!user) {
-      return res.status(404).json({
+    if (!user || user.role !== 'user') {
+      return res.status(403).json({
         success: false,
-        message: 'User not found',
-      });
-    }
-
-    if (user.role === 'admin') {
-      return res.status(404).json({
-        success: false,
-        message: 'Admins cannot fill out surveys',
+        message: 'Permission denied',
       });
     }
 
@@ -242,25 +224,46 @@ router.post(
       });
     }
 
-    if (userSurvey.status === UserSurveyStatus.completed) {
+    if (userSurvey.status === UserSurveyStatus.submitted) {
       return res.status(403).json({
         success: false,
         message: 'This survey cannot be edited anymore',
       });
     }
 
+    if (userSurvey.status === 'draft' && req.body.status === 'submitted') {
+      await userSurvey.update({ status: UserSurveyStatus.submitted });
+    }
+
+    // TODO: this seems wrong
+    // test it by updating answers and fetching the updated user survey
+    // ------------------------
+    // ------------------------
     try {
-      await Answer.bulkCreate(
-        answers.map((a) => ({
-          answer: a.answer,
-          questionId: a.questionId,
-          userSurveyId: userSurvey.id,
-        }))
-      );
+      // Create or update answers
+      const answerPromises = answers.map(async (a) => {
+        if (a.answerId) {
+          // If answerId is provided, update the existing answer
+          await Answer.update(
+            { answer: a.answer },
+            { where: { id: a.answerId, userSurveyId: userSurvey.id } }
+          );
+        } else {
+          // Otherwise, create a new answer
+          await Answer.create({
+            answer: a.answer,
+            questionId: a.questionId,
+            userSurveyId: userSurvey.id,
+          });
+        }
+      });
+
+      // Wait for all answer operations to finish
+      await Promise.all(answerPromises);
 
       return res.status(200).json({
         success: true,
-        message: 'Answers added successfully',
+        message: 'Answers updated successfully',
       });
     } catch (error) {
       const errorMessage =
@@ -331,24 +334,175 @@ router.get(
           total: surveys.count,
         });
       }
+
+      // listing regular user's surveys
+      const userSurveyFilters: any = {
+        userId: user.id, // Ensure we only fetch surveys related to the current user
+      };
+
+      // Filter by status (UserSurvey's own field)
+      if (status && ['draft', 'completed'].includes(status as string)) {
+        userSurveyFilters.status = status;
+      }
+
+      const includeFilters: any[] = [
+        {
+          model: Survey,
+          required: true, // Ensure each UserSurvey has a related Survey
+          include: [
+            {
+              model: Category,
+              as: 'categories',
+              attributes: ['id', 'name'],
+              through: { attributes: [] }, // Remove unnecessary junction table attributes
+              ...(categoryId && { where: { id: categoryId } }),
+            },
+          ],
+        },
+      ];
+
+      // Filter by title (Survey's title)
+      if (title) {
+        includeFilters[0].where = {
+          title: { [Op.iLike]: `%${title}%` },
+        };
+      }
+
+      const userSurveys = await UserSurvey.findAndCountAll({
+        where: userSurveyFilters,
+        include: includeFilters,
+        order: [['createdAt', 'DESC']],
+      });
+
+      return res.status(200).json({
+        success: true,
+        data: userSurveys.rows,
+        total: userSurveys.count,
+      });
     } catch (error) {
       console.error('Error fetching surveys:', error);
       return res
         .status(500)
         .json({ success: false, message: 'Internal Server Error' });
     }
+  })
+);
 
-    // TODO:
-    // get all USER surveys
+router.put(
+  '/surveys/:surveyId',
+  auth,
+  asyncWrapper(async (req, res) => {
+    try {
+      const { surveyId } = req.params;
+      const { title, categoryIds, questions, status } = req.body;
+      const requestorEmail = req.body.jwt.email;
+
+      const user = await User.findOne({ where: { email: requestorEmail } });
+
+      if (!user || user.role !== 'admin') {
+        return res.status(403).json({
+          success: false,
+          message: 'Permission denied',
+        });
+      }
+
+      const survey = await Survey.findByPk(surveyId, {
+        include: [
+          {
+            model: Category,
+            as: 'categories',
+            attributes: ['id', 'name', 'description', 'status'],
+            through: { attributes: [] },
+          },
+          {
+            model: Question,
+            as: 'questions',
+            attributes: ['id', 'question'],
+          },
+        ],
+      });
+
+      if (!survey) {
+        return res
+          .status(404)
+          .json({ success: false, message: 'Survey not found' });
+      }
+
+      if (survey.status === 'published') {
+        return res.status(400).json({
+          success: false,
+          message: 'Cannot update a published survey',
+        });
+      }
+
+      if (title) {
+        survey.title = title;
+      }
+
+      if (status && status === 'published') {
+        survey.status = status;
+      }
+
+      if (categoryIds) {
+        const categories = await Category.findAll({
+          where: { id: categoryIds },
+        });
+        await survey.setCategories(categories);
+      }
+
+      if (questions && Array.isArray(questions)) {
+        for (const q of questions) {
+          if (q.id) {
+            // If the questionId exists, update the question
+            const existingQuestion = await Question.findByPk(q.id);
+            if (existingQuestion) {
+              existingQuestion.question = q.question;
+              await existingQuestion.save();
+            }
+          } else {
+            await Question.create({
+              question: q.question,
+              surveyId: survey.id,
+            });
+          }
+        }
+      }
+
+      await survey.save();
+
+      // Re-fetch the survey with updated associations (including categories)
+      const updatedSurvey = await Survey.findByPk(survey.id, {
+        include: [
+          {
+            model: Category,
+            as: 'categories',
+            attributes: ['id', 'name', 'description', 'status'],
+            through: { attributes: [] },
+          },
+          {
+            model: Question,
+            as: 'questions',
+            attributes: ['id', 'question'],
+          },
+        ],
+      });
+
+      return res.status(200).json({
+        success: true,
+        message: 'Survey updated successfully',
+        data: updatedSurvey,
+      });
+    } catch (error) {
+      console.error('Error updating survey:', error);
+      return res
+        .status(500)
+        .json({ success: false, message: 'Internal Server Error' });
+    }
   })
 );
 
 // TODO:
-// get all surveys
-// survey status (admin): published / draft (?)
-// survey status (user): draft / completed / not completed
-// get surveys filterd by...
-// update survey (if UNPUBLISHED!)
-// seed categories and users DONE
+// update survey (if draft) - user I THINK WE GOT IT ALREADY?????????????
+// user can only 'update' a survey by answering the questions
 
 export default router;

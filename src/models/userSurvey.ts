@@ -10,7 +10,7 @@ import { User } from './user.ts';
 
 export enum UserSurveyStatus {
   'draft' = 'draft', // initial status when user is invited, can be saved
-  'completed' = 'completed', // user no longer can interact with the survey (answer questions)
+  'submitted' = 'submitted', // user no longer can interact with the survey (answer questions)
 }
 
 export class UserSurvey extends Model<
