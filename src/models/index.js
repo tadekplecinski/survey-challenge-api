@@ -15,10 +15,19 @@ export const registerModels = async (sequelize) => {
   });
 
   for (const file of filteredModelFiles) {
-    const modelModule = await import(path.join(__dirname, file));
+    let modelPath = path.join(__dirname, file);
 
-    const model = modelModule.default(sequelize);
-    models[model.name] = model;
+    if (process.platform === 'win32') {
+      modelPath = `file:///${modelPath.replace(/\\/g, '/')}`;
+    }
+
+    try {
+      const modelModule = await import(modelPath);
+      const model = modelModule.default(sequelize);
+      models[model.name] = model;
+    } catch (err) {
+      console.error(`Error loading model from file: ${file}`, err);
+    }
   }
 
   Object.keys(models).forEach((modelName) => {

@@ -20,7 +20,7 @@ export default {
       status: {
         type: Sequelize.ENUM('draft', 'completed'),
         allowNull: false,
-        defaultValue: 'initial',
+        defaultValue: 'draft',
       },
       createdAt: {
         allowNull: false,
