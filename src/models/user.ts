@@ -6,7 +6,7 @@ import {
   InferCreationAttributes,
   CreationOptional,
 } from 'sequelize';
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 
 export enum UserRole {
   ADMIN = 'admin',
