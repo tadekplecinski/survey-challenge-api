@@ -49,6 +49,12 @@ export default (sequelize: Sequelize) => {
       sequelize,
       modelName: 'Answer',
       timestamps: false,
+      indexes: [
+        {
+          unique: true,
+          fields: ['questionId', 'userSurveyId'], // Ensure one answer per question per userSurvey
+        },
+      ],
     }
   );
 

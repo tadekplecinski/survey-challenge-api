@@ -18,7 +18,7 @@ export default {
         references: { model: 'Surveys', key: 'id' },
       },
       status: {
-        type: Sequelize.ENUM('draft', 'completed'),
+        type: Sequelize.ENUM('draft', 'submitted'),
         allowNull: false,
         defaultValue: 'draft',
       },

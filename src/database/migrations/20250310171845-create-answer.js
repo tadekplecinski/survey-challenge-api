@@ -32,6 +32,12 @@ export default {
         onDelete: 'CASCADE',
       },
     });
+
+    queryInterface.addConstraint('Answers', {
+      fields: ['questionId', 'userSurveyId'],
+      type: 'unique',
+      name: 'uq_answer_question_userSurvey',
+    });
   },
 
   down: async (queryInterface, Sequelize) => {

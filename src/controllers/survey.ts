@@ -235,8 +235,7 @@ router.put(
   asyncWrapper(async (req, res) => {
     const requestorEmail = req.body.jwt.email;
     const surveyId = req.params.id;
-    const answers: { answer: string; answerId?: number; questionId: number }[] =
-      req.body.answers;
+    const answers: { answer: string; questionId: number }[] = req.body.answers;
 
     const user = await User.findOne({
       where: { email: requestorEmail },
@@ -267,25 +266,25 @@ router.put(
       });
     }
 
-    if (userSurvey.status === 'draft' && req.body.status === 'submitted') {
+    if (
+      userSurvey.status === 'draft' &&
+      req.body.status === UserSurveyStatus.submitted
+    ) {
       await userSurvey.update({ status: UserSurveyStatus.submitted });
     }
 
-    // TODO: this seems wrong
-    // test it by updating answers and fetching the updated user survey
-    // ------------------------
-    // ------------------------
     try {
       // Create or update answers
       const answerPromises = answers.map(async (a) => {
-        if (a.answerId) {
-          // If answerId is provided, update the existing answer
-          await Answer.update(
-            { answer: a.answer },
-            { where: { id: a.answerId, userSurveyId: userSurvey.id } }
-          );
+        let existingAnswer = await Answer.findOne({
+          where: { questionId: a.questionId, userSurveyId: userSurvey.id },
+        });
+
+        if (existingAnswer) {
+          // Update the existing answer
+          await existingAnswer.update({ answer: a.answer });
         } else {
-          // Otherwise, create a new answer
+          // Create a new answer if none exists
           await Answer.create({
             answer: a.answer,
             questionId: a.questionId,
@@ -313,26 +312,19 @@ router.put(
   })
 );
 
-// fetch surveys (for both admin and user)
 router.get(
-  '/surveys',
+  '/admin/surveys',
   auth,
   asyncWrapper(async (req, res) => {
     try {
       const requestorEmail = req.body.jwt.email;
-      const user = await User.findOne({
-        where: { email: requestorEmail },
-      });
+      const user = await User.findOne({ where: { email: requestorEmail } });
 
-      if (!user) {
-        return res.status(404).json({
-          success: false,
-          message: 'User not found',
-        });
+      if (!user || user.role !== 'admin') {
+        return res.status(403).json({ success: false, message: 'Forbidden' });
       }
 
       const { title, categoryId, status } = req.query;
-
       const filters: any = {};
 
       if (title) {
@@ -343,43 +335,52 @@ router.get(
         filters.status = status;
       }
 
-      if (user.role === 'admin') {
-        // TODO: makes consistent with category filtering for user
-        // (below)
-        const categoryFilter = categoryId
-          ? {
-              model: Category,
-              as: 'categories',
-              where: { id: categoryId },
-              attributes: ['id', 'name'],
-              through: { attributes: [] },
-            }
-          : {
-              model: Category,
-              as: 'categories',
-              attributes: ['id', 'name'],
-              through: { attributes: [] },
-            };
-
-        const surveys = await Survey.findAndCountAll({
-          where: filters,
-          include: [categoryFilter],
-          order: [['createdAt', 'DESC']],
-        });
-
-        return res.status(200).json({
-          success: true,
-          data: surveys.rows,
-          total: surveys.count,
-        });
-      }
-
-      // listing regular user's surveys
-      const userSurveyFilters: any = {
-        userId: user.id, // Ensure we only fetch surveys related to the current user
+      const categoryFilter = {
+        model: Category,
+        as: 'categories',
+        attributes: ['id', 'name'],
+        through: { attributes: [] },
+        ...(categoryId && { where: { id: categoryId } }),
       };
 
-      // Filter by status (UserSurvey's own field)
+      const surveys = await Survey.findAndCountAll({
+        where: filters,
+        include: [categoryFilter],
+        order: [['createdAt', 'DESC']],
+      });
+
+      return res.status(200).json({
+        success: true,
+        data: surveys.rows,
+        total: surveys.count,
+      });
+    } catch (error) {
+      console.error('Error fetching surveys (Admin):', error);
+      return res
+        .status(500)
+        .json({ success: false, message: 'Internal Server Error' });
+    }
+  })
+);
+
+router.get(
+  '/surveys',
+  auth,
+  asyncWrapper(async (req, res) => {
+    try {
+      const requestorEmail = req.body.jwt.email;
+      const user = await User.findOne({ where: { email: requestorEmail } });
+
+      if (!user) {
+        return res
+          .status(404)
+          .json({ success: false, message: 'User not found' });
+      }
+
+      const { title, categoryId, status } = req.query;
+
+      const userSurveyFilters: any = { userId: user.id };
+
       if (status && ['draft', 'submitted'].includes(status as string)) {
         userSurveyFilters.status = status;
       }
@@ -387,24 +388,21 @@ router.get(
       const includeFilters: any[] = [
         {
           model: Survey,
-          required: true, // Ensure each UserSurvey has a related Survey
+          required: true,
           include: [
             {
               model: Category,
               as: 'categories',
               attributes: ['id', 'name'],
-              through: { attributes: [] }, // Remove unnecessary junction table attributes
+              through: { attributes: [] },
               ...(categoryId && { where: { id: categoryId } }),
             },
           ],
         },
       ];
 
-      // Filter by title (Survey's title)
       if (title) {
-        includeFilters[0].where = {
-          title: { [Op.iLike]: `%${title}%` },
-        };
+        includeFilters[0].where = { title: { [Op.iLike]: `%${title}%` } };
       }
 
       const userSurveys = await UserSurvey.findAndCountAll({
@@ -419,7 +417,7 @@ router.get(
         total: userSurveys.count,
       });
     } catch (error) {
-      console.error('Error fetching surveys:', error);
+      console.error('Error fetching surveys (User):', error);
       return res
         .status(500)
         .json({ success: false, message: 'Internal Server Error' });
