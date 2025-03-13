@@ -19,6 +19,12 @@ export default {
       userName: {
         type: DataTypes.STRING(50),
         unique: true,
+        validate: {
+          len: {
+            args: [2, 50],
+            msg: 'Username must contain between 2 and 50 characters',
+          },
+        },
       },
       role: {
         type: DataTypes.ENUM('user', 'admin'),

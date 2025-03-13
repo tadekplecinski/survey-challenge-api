@@ -36,27 +36,6 @@ export class User extends Model<
     return bcrypt.hash(password, 10);
   }
 
-  static async createNewUser({
-    email,
-    password,
-    userName,
-    role,
-  }: {
-    email: string;
-    password: string;
-    role: UserRole;
-    userName: string;
-  }) {
-    return User.sequelize!.transaction(async (t) => {
-      const user = await User.create(
-        { email, password, userName, role },
-        { transaction: t }
-      );
-
-      return user;
-    });
-  }
-
   comparePasswords(password: string): Promise<boolean> {
     return bcrypt.compare(password, this.password);
   }

@@ -1,6 +1,6 @@
-import './config/index.js';
-import cls from 'cls-hooked';
 import { Options, Sequelize } from 'sequelize';
+
+import './config/index.js';
 import dbConfig from './config/database.js';
 import { registerModels } from './models/index.js';
 
@@ -11,9 +11,6 @@ interface SequelizeOptions extends Options {
 }
 
 try {
-  const namespace = cls.createNamespace('transactions-namespace');
-  Sequelize.useCLS(namespace);
-
   const connection = new Sequelize(dbConfig as SequelizeOptions);
   await connection.authenticate({ logging: false });
 
@@ -28,6 +25,5 @@ try {
   });
 } catch (err) {
   console.log('err', err);
-
   console.error('Something went wrong when initializing the server.');
 }

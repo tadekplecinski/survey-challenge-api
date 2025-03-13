@@ -7,17 +7,18 @@ import { UserSurvey, UserSurveyStatus } from '../models/userSurvey.ts';
 import { Question } from '../models/question.ts';
 import { Answer } from '../models/answer.ts';
 import { User } from '../models/user.ts';
-import { Survey } from '../models/survey.ts';
+import { Survey, SurveyStatus } from '../models/survey.ts';
 import { Category } from '../models/category.ts';
 
 const router = Router();
 
+// create a survey (admin)
 router.post(
   '/survey',
   auth,
   asyncWrapper(async (req, res) => {
     const creatorEmail = req.body.jwt.email;
-    const { userId: targetUserId, questions, categories } = req.body;
+    const { questions, categories } = req.body;
 
     const creator = await User.findOne({
       where: { email: creatorEmail },
@@ -31,7 +32,7 @@ router.post(
     }
 
     const survey = await Survey.createNewSurvey({
-      userId: targetUserId,
+      // userId: targetUserId,
       title: req.body.title,
       questions,
       categories,
@@ -47,6 +48,8 @@ router.post(
   })
 );
 
+// fetch single survey (for admin and user)
+// for admin it's the survey, for user it's the userSurvey
 router.get(
   '/survey/:id',
   auth,
@@ -149,50 +152,83 @@ router.get(
   })
 );
 
+// invite user to survey, only if survey is in Published state
 router.post(
   '/survey/:id/invite',
   auth,
   asyncWrapper(async (req, res) => {
-    const requestorEmail = req.body.jwt.email;
-    const inviteeEmail = req.body.inviteeEmail;
-    const surveyId = req.params.id;
+    try {
+      const { jwt, inviteeEmail } = req.body;
+      const { id: surveyId } = req.params;
+      const requestorEmail = jwt.email;
 
-    const user = await User.findOne({
-      where: { email: requestorEmail },
-    });
+      // Validate requestor role
+      const user = await User.findOne({
+        where: { email: requestorEmail },
+      });
 
-    if (!user || user.role !== 'admin') {
-      return res.status(403).json({
+      if (!user || user.role !== 'admin') {
+        return res.status(403).json({
+          success: false,
+          message: 'Permission denied',
+        });
+      }
+
+      // Validate invitee user
+      const invitee = await User.findOne({
+        where: { email: inviteeEmail },
+      });
+
+      if (!invitee) {
+        return res.status(404).json({
+          success: false,
+          message: 'Invitee user not found',
+        });
+      }
+
+      // Validate survey existence and status
+      const survey = await Survey.findOne({
+        where: { id: surveyId },
+      });
+
+      if (!survey) {
+        return res.status(404).json({
+          success: false,
+          message: 'Survey not found',
+        });
+      }
+
+      if (survey.status === SurveyStatus.DRAFT) {
+        return res.status(403).json({
+          success: false,
+          message: 'Survey has not been published yet',
+        });
+      }
+
+      // Create UserSurvey entry
+      const userSurvey = await UserSurvey.create({
+        userId: invitee.id,
+        surveyId: survey.id,
+      });
+
+      return res.status(200).json({
+        success: true,
+        message: 'User invited to the survey successfully',
+        userSurvey,
+      });
+    } catch (error) {
+      console.error('Error in /survey/:id/invite:', error); // Log error for debugging
+
+      // Return a generic error message
+      return res.status(500).json({
         success: false,
-        message: 'Permission denied',
+        message: 'Internal server error. Please try again later.',
       });
     }
-
-    const invitee = await User.findOne({
-      where: { email: inviteeEmail },
-    });
-
-    if (!invitee) {
-      return res.status(404).json({
-        success: false,
-        message: 'User not found',
-      });
-    }
-
-    const userSurvey = await UserSurvey.create({
-      userId: invitee.id,
-      surveyId: +surveyId,
-    });
-
-    res.status(200).json({
-      success: true,
-      message: 'User invited to a survey',
-      userSurvey,
-    });
   })
 );
 
-// route to fill out the survey (for invited users - who can see it)
+// route to fill out the userSurvey (for invited users - who can see it)
 router.put(
   '/survey/:id/answers',
   auth,
@@ -277,6 +313,7 @@ router.put(
   })
 );
 
+// fetch surveys (for both admin and user)
 router.get(
   '/surveys',
   auth,
@@ -302,11 +339,13 @@ router.get(
         filters.title = { [Op.iLike]: `%${title}%` };
       }
 
-      if (status && ['draft', 'completed'].includes(status as string)) {
+      if (status && ['draft', 'published'].includes(status as string)) {
         filters.status = status;
       }
 
       if (user.role === 'admin') {
+        // TODO: makes consistent with category filtering for user
+        // (below)
         const categoryFilter = categoryId
           ? {
               model: Category,
@@ -341,7 +380,7 @@ router.get(
       };
 
       // Filter by status (UserSurvey's own field)
-      if (status && ['draft', 'completed'].includes(status as string)) {
+      if (status && ['draft', 'submitted'].includes(status as string)) {
         userSurveyFilters.status = status;
       }
 
@@ -388,8 +427,10 @@ router.get(
   })
 );
 
+// update survey (admin)
+// TODO: test this (updating status works)
 router.put(
-  '/surveys/:surveyId',
+  '/survey/:surveyId',
   auth,
   asyncWrapper(async (req, res) => {
     try {

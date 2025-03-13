@@ -1,10 +1,10 @@
 import { Router } from 'express';
-import models from '../models/index.js';
+
 import asyncWrapper from '../utils/async-wrapper.ts';
 import JWTUtils from '../utils/jwt-utils.ts';
+import { User } from '../models/user.ts';
 
 const router = Router();
-const { User } = models as any;
 
 router.post(
   '/register',
@@ -20,7 +20,7 @@ router.post(
 
     const payload = { email };
     const accessToken = JWTUtils.generateAccessToken(payload);
-    await User.createNewUser(req.body);
+    await User.create(req.body);
 
     return res.status(200).send({
       success: true,
