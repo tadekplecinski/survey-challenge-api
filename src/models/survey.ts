@@ -7,6 +7,7 @@ import {
   CreationOptional,
   BelongsToManyAddAssociationsMixin,
   HasManyGetAssociationsMixin,
+  HasManyCountAssociationsMixin,
 } from 'sequelize';
 import { UserSurvey } from './userSurvey.ts';
 import { Question } from './question.ts';
@@ -26,10 +27,11 @@ export class Survey extends Model<
   declare status: CreationOptional<SurveyStatus>;
 
   declare addCategories: BelongsToManyAddAssociationsMixin<Category, number>;
+  declare getCategories: HasManyGetAssociationsMixin<Category>;
 
   declare getQuestions: HasManyGetAssociationsMixin<Question>;
   declare getUserSurveys: HasManyGetAssociationsMixin<UserSurvey>;
-  declare setCategories: (categories: any[]) => Promise<void>;
+  declare countQuestions: HasManyCountAssociationsMixin;
 
   static associate(models: any) {
     this.belongsToMany(models.User, {
@@ -58,18 +60,18 @@ export class Survey extends Model<
   static async createNewSurvey({
     title,
     questions,
-    categories,
+    categoryIds,
   }: {
     title: string;
     questions: string[];
-    categories: string[];
+    categoryIds: number[];
   }) {
-    const survey = await Survey.create({ title });
-
-    let createdQuestions: Question[] = [];
+    const survey = await Survey.create({
+      title,
+    });
 
     if (questions.length > 0) {
-      createdQuestions = await Question.bulkCreate(
+      await Question.bulkCreate(
         questions.map((question) => ({
           question,
           surveyId: survey.id,
@@ -77,30 +79,9 @@ export class Survey extends Model<
       );
     }
 
-    const categoryInstances = await Category.findAll({
-      where: {
-        name: categories,
-      },
-    });
+    await survey.addCategories(categoryIds);
 
-    if (categoryInstances.length !== categories.length) {
-      throw new Error('Some categories do not exist');
-    }
-
-    await survey.addCategories(categoryInstances);
-
-    return {
-      title: survey.title,
-      status: survey.status,
-      questions: createdQuestions.map(({ id, question }) => ({
-        id,
-        question,
-      })),
-      categories: categoryInstances.map(({ id, name }) => ({
-        id,
-        name,
-      })),
-    };
+    return survey;
   }
 }
 

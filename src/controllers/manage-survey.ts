@@ -1,5 +1,4 @@
 import { Router } from 'express';
-import { Op } from 'sequelize';
 
 import asyncWrapper from '../utils/async-wrapper.ts';
 import auth from '../middleware/auth.ts';
@@ -12,17 +11,19 @@ import { Category } from '../models/category.ts';
 
 const router = Router();
 
+const getUserByEmail = async (email: string) => {
+  return User.findOne({ where: { email } });
+};
+
 // create a survey (admin)
 router.post(
   '/survey',
   auth,
   asyncWrapper(async (req, res) => {
     const creatorEmail = req.body.jwt.email;
-    const { questions, categories } = req.body;
+    const { questions, categoryIds } = req.body;
 
-    const creator = await User.findOne({
-      where: { email: creatorEmail },
-    });
+    const creator = await getUserByEmail(creatorEmail);
 
     if (!creator || creator.role !== 'admin') {
       return res.status(403).send({
@@ -31,123 +32,15 @@ router.post(
       });
     }
 
-    const survey = await Survey.createNewSurvey({
-      // userId: targetUserId,
+    await Survey.createNewSurvey({
       title: req.body.title,
       questions,
-      categories,
+      categoryIds,
     });
 
     return res.status(200).send({
       success: true,
       message: 'Survey created successfully',
-      data: {
-        survey,
-      },
-    });
-  })
-);
-
-// fetch single survey (for admin and user)
-// for admin it's the survey, for user it's the userSurvey
-router.get(
-  '/survey/:id',
-  auth,
-  asyncWrapper(async (req, res) => {
-    const requestorEmail = req.body.jwt.email;
-    const surveyId = req.params.id;
-
-    const user = await User.findOne({
-      where: { email: requestorEmail },
-    });
-
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'User not found',
-      });
-    }
-
-    const isAdmin = user.role === 'admin';
-
-    // admin path
-    if (isAdmin) {
-      const survey = await Survey.findOne({
-        where: { id: surveyId },
-        include: [
-          { model: Question, as: 'questions' },
-          {
-            model: UserSurvey,
-            include: [{ model: User }],
-          },
-        ],
-      });
-
-      if (!survey) {
-        return res.status(404).send({
-          success: false,
-          message: 'Survey not found',
-        });
-      }
-
-      const questionsCount = (await survey.getQuestions()).length;
-      const userSurveys = await survey.getUserSurveys({
-        include: [{ model: User, attributes: ['email'] }],
-      });
-      const surveysCount = userSurveys.length;
-
-      const invitedUsersEmails = userSurveys.map(
-        (userSurvey) => userSurvey.User!.email
-      );
-
-      if (!survey) {
-        return res.status(404).send({
-          success: false,
-          message: 'Survey not found',
-        });
-      }
-
-      return res.status(200).send({
-        success: true,
-        data: {
-          survey,
-          surveysCount,
-          questionsCount,
-          invitedUsersEmails,
-        },
-      });
-    }
-
-    // regular user path
-    const userSurvey = await UserSurvey.findOne({
-      where: { id: surveyId, userId: user.id },
-      include: [
-        {
-          model: Survey,
-          include: [
-            {
-              model: Question,
-              as: 'questions',
-              attributes: ['id', 'question'],
-            },
-          ],
-        },
-        Answer,
-      ],
-    });
-
-    if (!userSurvey) {
-      return res.status(404).send({
-        success: false,
-        message: 'Survey not found',
-      });
-    }
-
-    return res.status(200).send({
-      success: true,
-      data: {
-        userSurvey,
-      },
     });
   })
 );
@@ -163,9 +56,7 @@ router.post(
       const requestorEmail = jwt.email;
 
       // Validate requestor role
-      const user = await User.findOne({
-        where: { email: requestorEmail },
-      });
+      const user = await getUserByEmail(requestorEmail);
 
       if (!user || user.role !== 'admin') {
         return res.status(403).json({
@@ -175,9 +66,7 @@ router.post(
       }
 
       // Validate invitee user
-      const invitee = await User.findOne({
-        where: { email: inviteeEmail },
-      });
+      const invitee = await getUserByEmail(inviteeEmail);
 
       if (!invitee) {
         return res.status(404).json({
@@ -237,9 +126,7 @@ router.put(
     const { id } = req.params;
     const answers: { answer: string; questionId: number }[] = req.body.answers;
 
-    const user = await User.findOne({
-      where: { email: requestorEmail },
-    });
+    const user = await getUserByEmail(requestorEmail);
 
     if (!user || user.role !== 'user') {
       return res.status(403).json({
@@ -357,119 +244,6 @@ router.put(
   })
 );
 
-router.get(
-  '/admin/surveys',
-  auth,
-  asyncWrapper(async (req, res) => {
-    try {
-      const requestorEmail = req.body.jwt.email;
-      const user = await User.findOne({ where: { email: requestorEmail } });
-
-      if (!user || user.role !== 'admin') {
-        return res.status(403).json({ success: false, message: 'Forbidden' });
-      }
-
-      const { title, categoryId, status } = req.query;
-      const filters: any = {};
-
-      if (title) {
-        filters.title = { [Op.iLike]: `%${title}%` };
-      }
-
-      if (status && ['draft', 'published'].includes(status as string)) {
-        filters.status = status;
-      }
-
-      const categoryFilter = {
-        model: Category,
-        as: 'categories',
-        attributes: ['id', 'name'],
-        through: { attributes: [] },
-        ...(categoryId && { where: { id: categoryId } }),
-      };
-
-      const surveys = await Survey.findAndCountAll({
-        where: filters,
-        include: [categoryFilter],
-        order: [['createdAt', 'DESC']],
-      });
-
-      return res.status(200).json({
-        success: true,
-        data: surveys.rows,
-        total: surveys.count,
-      });
-    } catch (error) {
-      console.error('Error fetching surveys (Admin):', error);
-      return res
-        .status(500)
-        .json({ success: false, message: 'Internal Server Error' });
-    }
-  })
-);
-
-router.get(
-  '/surveys',
-  auth,
-  asyncWrapper(async (req, res) => {
-    try {
-      const requestorEmail = req.body.jwt.email;
-      const user = await User.findOne({ where: { email: requestorEmail } });
-
-      if (!user) {
-        return res
-          .status(404)
-          .json({ success: false, message: 'User not found' });
-      }
-
-      const { title, categoryId, status } = req.query;
-
-      const userSurveyFilters: any = { userId: user.id };
-
-      if (status && ['draft', 'submitted'].includes(status as string)) {
-        userSurveyFilters.status = status;
-      }
-
-      const includeFilters: any[] = [
-        {
-          model: Survey,
-          required: true,
-          include: [
-            {
-              model: Category,
-              as: 'categories',
-              attributes: ['id', 'name'],
-              through: { attributes: [] },
-              ...(categoryId && { where: { id: categoryId } }),
-            },
-          ],
-        },
-      ];
-
-      if (title) {
-        includeFilters[0].where = { title: { [Op.iLike]: `%${title}%` } };
-      }
-
-      const userSurveys = await UserSurvey.findAndCountAll({
-        where: userSurveyFilters,
-        include: includeFilters,
-        order: [['createdAt', 'DESC']],
-      });
-
-      return res.status(200).json({
-        success: true,
-        data: userSurveys.rows,
-        total: userSurveys.count,
-      });
-    } catch (error) {
-      console.error('Error fetching surveys (User):', error);
-      return res
-        .status(500)
-        .json({ success: false, message: 'Internal Server Error' });
-    }
-  })
-);
-
 // update survey (admin)
 router.put(
   '/admin/survey/:id',
@@ -480,7 +254,7 @@ router.put(
       const { title, categoryIds, questions, status } = req.body;
       const requestorEmail = req.body.jwt.email;
 
-      const user = await User.findOne({ where: { email: requestorEmail } });
+      const user = await getUserByEmail(requestorEmail);
 
       if (!user || user.role !== 'admin') {
         return res.status(403).json({
@@ -512,11 +286,19 @@ router.put(
         survey.status = status;
       }
 
-      if (categoryIds) {
-        const categories = await Category.findAll({
+      // logic below assumes there will be an endpoint to delete a category from a survey
+      if (categoryIds && Array.isArray(categoryIds)) {
+        const existingCategories = await Category.findAll({
           where: { id: categoryIds },
         });
-        await survey.setCategories(categories);
+
+        const currentSurveyCategories = await survey.getCategories();
+
+        await survey.addCategories(
+          Array.from(
+            new Set([...existingCategories, ...currentSurveyCategories])
+          )
+        );
       }
 
       if (questions && Array.isArray(questions)) {

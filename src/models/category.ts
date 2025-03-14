@@ -5,9 +5,7 @@ import {
   InferAttributes,
   InferCreationAttributes,
   CreationOptional,
-  BelongsToManyAddAssociationsMixin,
 } from 'sequelize';
-import { Survey } from './survey.ts';
 
 export enum CategoryStatus {
   Active = 'active',
