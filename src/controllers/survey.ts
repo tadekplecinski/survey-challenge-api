@@ -228,13 +228,13 @@ router.post(
   })
 );
 
-// route to fill out the userSurvey (for invited users - who can see it)
+// route to fill out the user survey or submit it (for invited users)
 router.put(
-  '/survey/:id/answers',
+  '/survey/:id',
   auth,
   asyncWrapper(async (req, res) => {
     const requestorEmail = req.body.jwt.email;
-    const surveyId = req.params.id;
+    const { id } = req.params;
     const answers: { answer: string; questionId: number }[] = req.body.answers;
 
     const user = await User.findOne({
@@ -249,7 +249,7 @@ router.put(
     }
 
     const userSurvey = await UserSurvey.findOne({
-      where: { surveyId, userId: user.id },
+      where: { id, userId: user.id },
     });
 
     if (!userSurvey) {
@@ -266,25 +266,71 @@ router.put(
       });
     }
 
+    const incomingAnswers = Array.isArray(answers) ? answers : [];
+
+    const survey = await userSurvey.getSurvey();
+    const surveyQuestions = await survey.getQuestions();
+    const requiredQuestionIds = surveyQuestions.map((q) => q.id);
+
     if (
-      userSurvey.status === 'draft' &&
+      incomingAnswers.some(
+        ({ questionId }) => !requiredQuestionIds.includes(questionId)
+      )
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          'Some answers contain invalid question IDs that do not belong to this survey.',
+      });
+    }
+
+    const userSurveyAnswers = await userSurvey.getAnswers();
+    const currentUserSurveyAnswerQuestionIds = userSurveyAnswers.map(
+      (answer) => answer.questionId
+    );
+
+    const answeredQuestionIds = new Set([
+      ...currentUserSurveyAnswerQuestionIds,
+      ...incomingAnswers.map((a) => a.questionId),
+    ]);
+
+    // Check if all required questions have been answered
+    const allQuestionsAnswered = requiredQuestionIds.every((qId) =>
+      answeredQuestionIds.has(qId)
+    );
+
+    if (
+      !allQuestionsAnswered &&
       req.body.status === UserSurveyStatus.submitted
     ) {
+      return res.status(400).json({
+        success: false,
+        message: 'All questions must be answered before submitting.',
+      });
+    }
+
+    if (
+      userSurvey.status === 'draft' &&
+      req.body.status === UserSurveyStatus.submitted &&
+      allQuestionsAnswered
+    ) {
       await userSurvey.update({ status: UserSurveyStatus.submitted });
+      return res.status(200).json({
+        success: true,
+        message: 'User survey submitted successfully',
+      });
     }
 
     try {
       // Create or update answers
-      const answerPromises = answers.map(async (a) => {
+      const answerPromises = incomingAnswers.map(async (a) => {
         let existingAnswer = await Answer.findOne({
           where: { questionId: a.questionId, userSurveyId: userSurvey.id },
         });
 
         if (existingAnswer) {
-          // Update the existing answer
           await existingAnswer.update({ answer: a.answer });
         } else {
-          // Create a new answer if none exists
           await Answer.create({
             answer: a.answer,
             questionId: a.questionId,
@@ -293,7 +339,6 @@ router.put(
         }
       });
 
-      // Wait for all answer operations to finish
       await Promise.all(answerPromises);
 
       return res.status(200).json({
@@ -426,13 +471,12 @@ router.get(
 );
 
 // update survey (admin)
-// TODO: test this (updating status works)
 router.put(
-  '/survey/:surveyId',
+  '/admin/survey/:id',
   auth,
   asyncWrapper(async (req, res) => {
     try {
-      const { surveyId } = req.params;
+      const { id } = req.params;
       const { title, categoryIds, questions, status } = req.body;
       const requestorEmail = req.body.jwt.email;
 
@@ -445,21 +489,7 @@ router.put(
         });
       }
 
-      const survey = await Survey.findByPk(surveyId, {
-        include: [
-          {
-            model: Category,
-            as: 'categories',
-            attributes: ['id', 'name', 'description', 'status'],
-            through: { attributes: [] },
-          },
-          {
-            model: Question,
-            as: 'questions',
-            attributes: ['id', 'question'],
-          },
-        ],
-      });
+      const survey = await Survey.findByPk(id);
 
       if (!survey) {
         return res
@@ -509,27 +539,9 @@ router.put(
 
       await survey.save();
 
-      // Re-fetch the survey with updated associations (including categories)
-      const updatedSurvey = await Survey.findByPk(survey.id, {
-        include: [
-          {
-            model: Category,
-            as: 'categories',
-            attributes: ['id', 'name', 'description', 'status'],
-            through: { attributes: [] },
-          },
-          {
-            model: Question,
-            as: 'questions',
-            attributes: ['id', 'question'],
-          },
-        ],
-      });
-
       return res.status(200).json({
         success: true,
         message: 'Survey updated successfully',
-        data: updatedSurvey,
       });
     } catch (error) {
       console.error('Error updating survey:', error);
@@ -539,9 +551,5 @@ router.put(
     }
   })
 );
-
-// TODO:
-// update survey (if draft) - user I THINK WE GOT IT ALREADY?????????????
-// user can only 'update' a survey by answering the questions
 
 export default router;

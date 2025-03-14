@@ -5,8 +5,12 @@ import {
   InferAttributes,
   InferCreationAttributes,
   CreationOptional,
+  BelongsToGetAssociationMixin,
+  HasManyGetAssociationsMixin,
 } from 'sequelize';
 import { User } from './user.ts';
+import { Survey } from './survey.ts';
+import { Answer } from './answer.ts';
 
 export enum UserSurveyStatus {
   'draft' = 'draft', // initial status when user is invited, can be saved
@@ -22,6 +26,9 @@ export class UserSurvey extends Model<
   declare surveyId: number;
   declare status: CreationOptional<UserSurveyStatus>;
   declare User?: User;
+
+  declare getSurvey: BelongsToGetAssociationMixin<Survey>;
+  declare getAnswers: HasManyGetAssociationsMixin<Answer>;
 
   static associate(models: any) {
     this.belongsTo(models.User, { foreignKey: 'userId' });

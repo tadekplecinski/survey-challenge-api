@@ -23,8 +23,6 @@ export class Category extends Model<
   declare description: string;
   declare status: CategoryStatus;
 
-  declare addSurvey: BelongsToManyAddAssociationsMixin<Survey, number>;
-
   static associate(models: any) {
     this.belongsToMany(models.Survey, {
       through: models.SurveyCategory,
