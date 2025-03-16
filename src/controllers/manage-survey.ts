@@ -16,29 +16,24 @@ const createSurveySchema = z.object({
   title: z.string().min(3, 'Title must be at least 3 characters'),
   questions: z.array(z.string().min(1, 'Questions cannot be empty')),
   categoryIds: z.array(z.number().positive('Invalid category ID')),
-  jwt: z.object({
-    email: z.string().email('Invalid email format'),
-  }),
 });
 
 const inviteUserSchema = z.object({
   inviteeEmail: z.string().email('Invalid email format'),
-  jwt: z.object({
-    email: z.string().email('Invalid email format'),
-  }),
 });
 
-const userSurveyAnswersSchema = z.object({
-  answers: z.array(
-    z.object({
-      answer: z.string().min(1, 'Answer cannot be empty'),
-      questionId: z.number().int('Invalid question ID'),
-    })
-  ),
-  status: z.enum([UserSurveyStatus.draft, UserSurveyStatus.submitted]),
-  jwt: z.object({
-    email: z.string().email('Invalid email format'),
-  }),
+const updateUserSurveySchema = z.object({
+  answers: z
+    .array(
+      z.object({
+        answer: z.string().min(1, 'Answer cannot be empty'),
+        questionId: z.number().int('Invalid question ID'),
+      })
+    )
+    .optional(),
+  status: z
+    .enum([UserSurveyStatus.draft, UserSurveyStatus.submitted])
+    .optional(),
 });
 
 const updateSurveySchema = z.object({
@@ -53,9 +48,6 @@ const updateSurveySchema = z.object({
     )
     .optional(),
   status: z.enum(['draft', 'published']).optional(),
-  jwt: z.object({
-    email: z.string().email('Invalid email format'),
-  }),
 });
 
 // create a survey (admin)
@@ -64,11 +56,11 @@ router.post(
   auth,
   asyncWrapper(async (req: Request, res: Response) => {
     try {
-      const { title, questions, categoryIds, jwt } = createSurveySchema.parse(
+      const { title, questions, categoryIds } = createSurveySchema.parse(
         req.body
       );
 
-      const creator = await getUserByEmail(jwt.email);
+      const creator = await getUserByEmail(req.body.jwt.email);
 
       if (!creator || creator.role !== 'admin') {
         return res.status(403).send({
@@ -77,7 +69,7 @@ router.post(
         });
       }
 
-      const survey = await Survey.createNewSurvey({
+      await Survey.createNewSurvey({
         title,
         questions,
         categoryIds,
@@ -86,7 +78,6 @@ router.post(
       return res.status(200).send({
         success: true,
         message: 'Survey created successfully',
-        data: survey,
       });
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -112,10 +103,10 @@ router.post(
   auth,
   asyncWrapper(async (req: Request, res: Response) => {
     try {
-      const { inviteeEmail, jwt } = inviteUserSchema.parse(req.body);
+      const { inviteeEmail } = inviteUserSchema.parse(req.body);
       const { id: surveyId } = req.params;
 
-      const user = await getUserByEmail(jwt.email);
+      const user = await getUserByEmail(req.body.jwt.email);
 
       if (!user || user.role !== 'admin') {
         return res.status(403).json({
@@ -186,10 +177,10 @@ router.put(
   auth,
   asyncWrapper(async (req: Request, res: Response) => {
     try {
-      const { answers, status, jwt } = userSurveyAnswersSchema.parse(req.body);
+      const { answers, status } = updateUserSurveySchema.parse(req.body);
       const { id: userSurveyId } = req.params;
 
-      const user = await getUserByEmail(jwt.email);
+      const user = await getUserByEmail(req.body.jwt.email);
 
       if (!user || user.role !== 'user') {
         return res.status(403).json({
@@ -317,10 +308,10 @@ router.put(
   asyncWrapper(async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
-      const { title, categoryIds, questions, status, jwt } =
+      const { title, categoryIds, questions, status } =
         updateSurveySchema.parse(req.body);
 
-      const user = await getUserByEmail(jwt.email);
+      const user = await getUserByEmail(req.body.jwt.email);
 
       if (!user || user.role !== 'admin') {
         return res.status(403).json({

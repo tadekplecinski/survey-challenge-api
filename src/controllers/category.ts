@@ -16,10 +16,8 @@ const createCategorySchema = z.object({
     .enum([CategoryStatus.Active, CategoryStatus.Archived])
     .refine((val) => Object.values(CategoryStatus).includes(val), {
       message: 'Invalid status',
-    }),
-  jwt: z.object({
-    email: z.string().email('Invalid email format'),
-  }),
+    })
+    .optional(),
 });
 
 const listCategoriesQuerySchema = z.object({
@@ -52,9 +50,9 @@ router.post(
         });
       }
 
-      const { name, description, status, jwt } = result.data;
+      const { name, description, status } = result.data;
 
-      const creator = await getUserByEmail(jwt.email);
+      const creator = await getUserByEmail(req.body.jwt.email);
 
       if (!creator || creator.role !== 'admin') {
         return res.status(403).json({
@@ -89,8 +87,7 @@ router.get(
   auth,
   asyncWrapper(async (req: Request, res: Response) => {
     try {
-      const requesterEmail = req.body.jwt.email;
-      const requester = await getUserByEmail(requesterEmail);
+      const requester = await getUserByEmail(req.body.jwt.email);
 
       if (!requester || requester.role !== 'admin') {
         return res.status(403).json({

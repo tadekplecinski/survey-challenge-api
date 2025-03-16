@@ -15,18 +15,12 @@ import { getUserByEmail } from './helpers.ts';
 const router = Router();
 
 const getSurveySchema = z.object({
-  jwt: z.object({
-    email: z.string().email('Invalid email format'),
-  }),
   params: z.object({
     id: z.string(),
   }),
 });
 
 const getSurveysSchema = z.object({
-  jwt: z.object({
-    email: z.string().email('Invalid email format'),
-  }),
   query: z.object({
     title: z.string().optional(),
     categoryId: z.string().optional(),
@@ -34,15 +28,15 @@ const getSurveysSchema = z.object({
   }),
 });
 
-// fetch a particular survey (admin)
+// fetch a survey (admin)
 router.get(
   '/admin/survey/:id',
   auth,
   asyncWrapper(async (req: Request, res: Response) => {
     try {
-      const { jwt, params } = getSurveySchema.parse(req);
+      const { params } = getSurveySchema.parse(req);
 
-      const user = await getUserByEmail(jwt.email);
+      const user = await getUserByEmail(req.body.jwt.email);
       const { id: surveyId } = params;
 
       if (!user || user.role !== 'admin') {
@@ -61,6 +55,7 @@ router.get(
             attributes: ['id', 'name', 'description'],
             where: { status: 'active' },
             through: { attributes: [] },
+            required: false, // 'left' join
           },
         ],
       });
@@ -110,10 +105,10 @@ router.get(
   auth,
   asyncWrapper(async (req: Request, res: Response) => {
     try {
-      const { jwt, params } = getSurveySchema.parse(req);
+      const { params } = getSurveySchema.parse(req);
       const { id: surveyId } = params;
 
-      const user = await getUserByEmail(jwt.email);
+      const user = await getUserByEmail(req.body.jwt.email);
 
       if (!user) {
         return res
@@ -122,7 +117,7 @@ router.get(
       }
 
       const userSurvey = await UserSurvey.findOne({
-        where: { surveyId, userId: user.id },
+        where: { id: surveyId, userId: user.id },
         include: [
           {
             model: Survey,
@@ -170,10 +165,10 @@ router.get(
   auth,
   asyncWrapper(async (req: Request, res: Response) => {
     try {
-      const { jwt, query } = getSurveysSchema.parse(req);
+      const { query } = getSurveysSchema.parse(req);
       const { title, categoryId, status } = query;
 
-      const user = await getUserByEmail(jwt.email);
+      const user = await getUserByEmail(req.body.jwt.email);
       if (!user || user.role !== 'admin') {
         return res.status(403).json({ success: false, message: 'Forbidden' });
       }
@@ -232,10 +227,10 @@ router.get(
   auth,
   asyncWrapper(async (req: Request, res: Response) => {
     try {
-      const { jwt, query } = getSurveysSchema.parse(req);
+      const { query } = getSurveysSchema.parse(req);
       const { title, categoryId, status } = query;
 
-      const user = await getUserByEmail(jwt.email);
+      const user = await getUserByEmail(req.body.jwt.email);
       if (!user) {
         return res
           .status(404)
@@ -270,6 +265,7 @@ router.get(
         where: userSurveyFilters,
         include: includeFilters,
         order: [['createdAt', 'DESC']],
+        distinct: true, // otherwise .count is wrong
       });
 
       return res.status(200).json({

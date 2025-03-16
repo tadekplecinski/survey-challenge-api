@@ -19,7 +19,7 @@ export class Category extends Model<
   declare id: CreationOptional<number>;
   declare name: string;
   declare description: string;
-  declare status: CategoryStatus;
+  declare status: CreationOptional<CategoryStatus>;
 
   static associate(models: any) {
     this.belongsToMany(models.Survey, {
