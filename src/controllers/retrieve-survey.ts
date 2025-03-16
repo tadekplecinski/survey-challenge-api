@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { Op } from 'sequelize';
+import { Op, literal } from 'sequelize';
 import { z } from 'zod';
 
 import asyncWrapper from '../utils/async-wrapper.ts';
@@ -183,18 +183,28 @@ router.get(
         filters.status = status;
       }
 
-      const categoryFilter = {
-        model: Category,
-        as: 'categories',
-        attributes: ['id', 'name'],
-        through: { attributes: [] },
-        ...(categoryId && { where: { id: categoryId } }),
-      };
+      if (categoryId) {
+        filters.id = {
+          [Op.in]: literal(`(
+            SELECT "surveyId"
+            FROM "SurveyCategories"
+            WHERE "categoryId" = ${categoryId}
+          )`),
+        };
+      }
 
       const surveys = await Survey.findAndCountAll({
         where: filters,
-        include: [categoryFilter],
+        include: [
+          {
+            model: Category,
+            as: 'categories',
+            attributes: ['id', 'name'],
+            through: { attributes: [] },
+          },
+        ],
         order: [['createdAt', 'DESC']],
+        distinct: true,
       });
 
       return res.status(200).json({
@@ -238,32 +248,38 @@ router.get(
       }
 
       const userSurveyFilters: any = { userId: user.id };
-
       if (status) userSurveyFilters.status = status;
 
-      const includeFilters: any[] = [
-        {
-          model: Survey,
-          required: true,
-          include: [
-            {
-              model: Category,
-              as: 'categories',
-              attributes: ['id', 'name'],
-              through: { attributes: [] },
-              ...(categoryId && { where: { id: categoryId } }),
-            },
-          ],
-        },
-      ];
-
-      if (title) {
-        includeFilters[0].where = { title: { [Op.iLike]: `%${title}%` } };
+      if (categoryId) {
+        userSurveyFilters.surveyId = {
+          [Op.in]: literal(`
+              (SELECT "surveyId" 
+               FROM "SurveyCategories"
+               WHERE "categoryId" = ${categoryId})
+            `),
+        };
       }
+
+      const surveyFilters: any = {};
+      if (title) surveyFilters.title = { [Op.iLike]: `%${title}%` };
 
       const userSurveys = await UserSurvey.findAndCountAll({
         where: userSurveyFilters,
-        include: includeFilters,
+        include: [
+          {
+            model: Survey,
+            required: true,
+            where: surveyFilters,
+            include: [
+              {
+                model: Category,
+                as: 'categories',
+                attributes: ['id', 'name'],
+                through: { attributes: [] },
+              },
+            ],
+          },
+        ],
         order: [['createdAt', 'DESC']],
         distinct: true, // otherwise .count is wrong
       });
