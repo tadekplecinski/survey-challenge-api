@@ -1,47 +1,108 @@
-import { Router } from 'express';
+import { Router, Request, Response } from 'express';
+import { z } from 'zod';
 
 import asyncWrapper from '../utils/async-wrapper.ts';
 import auth from '../middleware/auth.ts';
 import { UserSurvey, UserSurveyStatus } from '../models/userSurvey.ts';
 import { Question } from '../models/question.ts';
 import { Answer } from '../models/answer.ts';
-import { User } from '../models/user.ts';
 import { Survey, SurveyStatus } from '../models/survey.ts';
 import { Category } from '../models/category.ts';
+import { getUserByEmail } from './helpers.ts';
 
 const router = Router();
 
-const getUserByEmail = async (email: string) => {
-  return User.findOne({ where: { email } });
-};
+const createSurveySchema = z.object({
+  title: z.string().min(3, 'Title must be at least 3 characters'),
+  questions: z.array(z.string().min(1, 'Questions cannot be empty')),
+  categoryIds: z.array(z.number().positive('Invalid category ID')),
+  jwt: z.object({
+    email: z.string().email('Invalid email format'),
+  }),
+});
+
+const inviteUserSchema = z.object({
+  inviteeEmail: z.string().email('Invalid email format'),
+  jwt: z.object({
+    email: z.string().email('Invalid email format'),
+  }),
+});
+
+const userSurveyAnswersSchema = z.object({
+  answers: z.array(
+    z.object({
+      answer: z.string().min(1, 'Answer cannot be empty'),
+      questionId: z.number().int('Invalid question ID'),
+    })
+  ),
+  status: z.enum([UserSurveyStatus.draft, UserSurveyStatus.submitted]),
+  jwt: z.object({
+    email: z.string().email('Invalid email format'),
+  }),
+});
+
+const updateSurveySchema = z.object({
+  title: z.string().optional(),
+  categoryIds: z.array(z.number().int()).optional(),
+  questions: z
+    .array(
+      z.object({
+        id: z.number().int().optional(),
+        question: z.string().min(1, 'Question cannot be empty'),
+      })
+    )
+    .optional(),
+  status: z.enum(['draft', 'published']).optional(),
+  jwt: z.object({
+    email: z.string().email('Invalid email format'),
+  }),
+});
 
 // create a survey (admin)
 router.post(
   '/survey',
   auth,
-  asyncWrapper(async (req, res) => {
-    const creatorEmail = req.body.jwt.email;
-    const { questions, categoryIds } = req.body;
+  asyncWrapper(async (req: Request, res: Response) => {
+    try {
+      const { title, questions, categoryIds, jwt } = createSurveySchema.parse(
+        req.body
+      );
 
-    const creator = await getUserByEmail(creatorEmail);
+      const creator = await getUserByEmail(jwt.email);
 
-    if (!creator || creator.role !== 'admin') {
-      return res.status(403).send({
+      if (!creator || creator.role !== 'admin') {
+        return res.status(403).send({
+          success: false,
+          message: 'Permission denied',
+        });
+      }
+
+      const survey = await Survey.createNewSurvey({
+        title,
+        questions,
+        categoryIds,
+      });
+
+      return res.status(200).send({
+        success: true,
+        message: 'Survey created successfully',
+        data: survey,
+      });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          success: false,
+          message: 'Validation error',
+          errors: error.errors,
+        });
+      }
+
+      console.error('Error creating survey:', error);
+      return res.status(500).json({
         success: false,
-        message: 'Permission denied',
+        message: 'Internal server error',
       });
     }
-
-    await Survey.createNewSurvey({
-      title: req.body.title,
-      questions,
-      categoryIds,
-    });
-
-    return res.status(200).send({
-      success: true,
-      message: 'Survey created successfully',
-    });
   })
 );
 
@@ -49,14 +110,12 @@ router.post(
 router.post(
   '/survey/:id/invite',
   auth,
-  asyncWrapper(async (req, res) => {
+  asyncWrapper(async (req: Request, res: Response) => {
     try {
-      const { jwt, inviteeEmail } = req.body;
+      const { inviteeEmail, jwt } = inviteUserSchema.parse(req.body);
       const { id: surveyId } = req.params;
-      const requestorEmail = jwt.email;
 
-      // Validate requestor role
-      const user = await getUserByEmail(requestorEmail);
+      const user = await getUserByEmail(jwt.email);
 
       if (!user || user.role !== 'admin') {
         return res.status(403).json({
@@ -65,7 +124,6 @@ router.post(
         });
       }
 
-      // Validate invitee user
       const invitee = await getUserByEmail(inviteeEmail);
 
       if (!invitee) {
@@ -75,7 +133,6 @@ router.post(
         });
       }
 
-      // Validate survey existence and status
       const survey = await Survey.findOne({
         where: { id: surveyId },
       });
@@ -94,7 +151,6 @@ router.post(
         });
       }
 
-      // Create UserSurvey entry
       const userSurvey = await UserSurvey.create({
         userId: invitee.id,
         surveyId: survey.id,
@@ -106,9 +162,16 @@ router.post(
         userSurvey,
       });
     } catch (error) {
-      console.error('Error in /survey/:id/invite:', error); // Log error for debugging
+      console.error('Error in /survey/:id/invite:', error);
 
-      // Return a generic error message
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          success: false,
+          message: 'Validation error',
+          errors: error.errors,
+        });
+      }
+
       return res.status(500).json({
         success: false,
         message: 'Internal server error. Please try again later.',
@@ -121,94 +184,89 @@ router.post(
 router.put(
   '/survey/:id',
   auth,
-  asyncWrapper(async (req, res) => {
-    const requestorEmail = req.body.jwt.email;
-    const { id } = req.params;
-    const answers: { answer: string; questionId: number }[] = req.body.answers;
-
-    const user = await getUserByEmail(requestorEmail);
-
-    if (!user || user.role !== 'user') {
-      return res.status(403).json({
-        success: false,
-        message: 'Permission denied',
-      });
-    }
-
-    const userSurvey = await UserSurvey.findOne({
-      where: { id, userId: user.id },
-    });
-
-    if (!userSurvey) {
-      return res.status(403).json({
-        success: false,
-        message: 'You are not assigned to this survey',
-      });
-    }
-
-    if (userSurvey.status === UserSurveyStatus.submitted) {
-      return res.status(403).json({
-        success: false,
-        message: 'This survey cannot be edited anymore',
-      });
-    }
-
-    const incomingAnswers = Array.isArray(answers) ? answers : [];
-
-    const survey = await userSurvey.getSurvey();
-    const surveyQuestions = await survey.getQuestions();
-    const requiredQuestionIds = surveyQuestions.map((q) => q.id);
-
-    if (
-      incomingAnswers.some(
-        ({ questionId }) => !requiredQuestionIds.includes(questionId)
-      )
-    ) {
-      return res.status(400).json({
-        success: false,
-        message:
-          'Some answers contain invalid question IDs that do not belong to this survey.',
-      });
-    }
-
-    const userSurveyAnswers = await userSurvey.getAnswers();
-    const currentUserSurveyAnswerQuestionIds = userSurveyAnswers.map(
-      (answer) => answer.questionId
-    );
-
-    const answeredQuestionIds = new Set([
-      ...currentUserSurveyAnswerQuestionIds,
-      ...incomingAnswers.map((a) => a.questionId),
-    ]);
-
-    // Check if all required questions have been answered
-    const allQuestionsAnswered = requiredQuestionIds.every((qId) =>
-      answeredQuestionIds.has(qId)
-    );
-
-    if (
-      !allQuestionsAnswered &&
-      req.body.status === UserSurveyStatus.submitted
-    ) {
-      return res.status(400).json({
-        success: false,
-        message: 'All questions must be answered before submitting.',
-      });
-    }
-
-    if (
-      userSurvey.status === 'draft' &&
-      req.body.status === UserSurveyStatus.submitted &&
-      allQuestionsAnswered
-    ) {
-      await userSurvey.update({ status: UserSurveyStatus.submitted });
-      return res.status(200).json({
-        success: true,
-        message: 'User survey submitted successfully',
-      });
-    }
-
+  asyncWrapper(async (req: Request, res: Response) => {
     try {
+      const { answers, status, jwt } = userSurveyAnswersSchema.parse(req.body);
+      const { id: userSurveyId } = req.params;
+
+      const user = await getUserByEmail(jwt.email);
+
+      if (!user || user.role !== 'user') {
+        return res.status(403).json({
+          success: false,
+          message: 'Permission denied',
+        });
+      }
+
+      const userSurvey = await UserSurvey.findOne({
+        where: { id: userSurveyId, userId: user.id },
+      });
+
+      if (!userSurvey) {
+        return res.status(403).json({
+          success: false,
+          message: 'You are not assigned to this survey',
+        });
+      }
+
+      if (userSurvey.status === UserSurveyStatus.submitted) {
+        return res.status(403).json({
+          success: false,
+          message: 'This survey cannot be edited anymore',
+        });
+      }
+
+      const survey = await userSurvey.getSurvey();
+      const surveyQuestions = await survey.getQuestions();
+      const requiredQuestionIds = surveyQuestions.map((q) => q.id);
+
+      const incomingAnswers = Array.isArray(answers) ? answers : [];
+      const invalidAnswers = incomingAnswers.some(
+        ({ questionId }) => !requiredQuestionIds.includes(questionId)
+      );
+
+      if (invalidAnswers) {
+        return res.status(400).json({
+          success: false,
+          message:
+            'Some answers contain invalid question IDs that do not belong to this survey.',
+        });
+      }
+
+      const userSurveyAnswers = await userSurvey.getAnswers();
+      const currentUserSurveyAnswerQuestionIds = userSurveyAnswers.map(
+        (answer) => answer.questionId
+      );
+
+      const answeredQuestionIds = new Set([
+        ...currentUserSurveyAnswerQuestionIds,
+        ...incomingAnswers.map((a) => a.questionId),
+      ]);
+
+      // Check if all required questions have been answered
+      const allQuestionsAnswered = requiredQuestionIds.every((qId) =>
+        answeredQuestionIds.has(qId)
+      );
+
+      if (!allQuestionsAnswered && status === UserSurveyStatus.submitted) {
+        return res.status(400).json({
+          success: false,
+          message: 'All questions must be answered before submitting.',
+        });
+      }
+
+      if (
+        userSurvey.status === 'draft' &&
+        status === UserSurveyStatus.submitted &&
+        allQuestionsAnswered
+      ) {
+        await userSurvey.update({ status: UserSurveyStatus.submitted });
+        return res.status(200).json({
+          success: true,
+          message: 'User survey submitted successfully',
+        });
+      }
+
       // Create or update answers
       const answerPromises = incomingAnswers.map(async (a) => {
         let existingAnswer = await Answer.findOne({
@@ -233,12 +291,20 @@ router.put(
         message: 'Answers updated successfully',
       });
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : 'An unknown error occurred';
+      console.error('Error in /survey/:id:', error);
 
-      return res.status(400).json({
+      // Handle validation errors from Zod
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          success: false,
+          message: 'Validation error',
+          errors: error.errors,
+        });
+      }
+
+      return res.status(500).json({
         success: false,
-        message: errorMessage,
+        message: 'Internal server error. Please try again later.',
       });
     }
   })
@@ -248,13 +314,13 @@ router.put(
 router.put(
   '/admin/survey/:id',
   auth,
-  asyncWrapper(async (req, res) => {
+  asyncWrapper(async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
-      const { title, categoryIds, questions, status } = req.body;
-      const requestorEmail = req.body.jwt.email;
+      const { title, categoryIds, questions, status, jwt } =
+        updateSurveySchema.parse(req.body);
 
-      const user = await getUserByEmail(requestorEmail);
+      const user = await getUserByEmail(jwt.email);
 
       if (!user || user.role !== 'admin') {
         return res.status(403).json({
@@ -271,20 +337,17 @@ router.put(
           .json({ success: false, message: 'Survey not found' });
       }
 
-      if (survey.status === 'published') {
+      if (survey.status === SurveyStatus.PUBLISHED) {
         return res.status(400).json({
           success: false,
           message: 'Cannot update a published survey',
         });
       }
 
-      if (title) {
-        survey.title = title;
-      }
+      if (title) survey.title = title;
 
-      if (status && status === 'published') {
-        survey.status = status;
-      }
+      if (status && status === 'published')
+        survey.status = SurveyStatus.PUBLISHED;
 
       // logic below assumes there will be an endpoint to delete a category from a survey
       if (categoryIds && Array.isArray(categoryIds)) {
@@ -293,7 +356,6 @@ router.put(
         });
 
         const currentSurveyCategories = await survey.getCategories();
-
         await survey.addCategories(
           Array.from(
             new Set([...existingCategories, ...currentSurveyCategories])
@@ -327,9 +389,19 @@ router.put(
       });
     } catch (error) {
       console.error('Error updating survey:', error);
-      return res
-        .status(500)
-        .json({ success: false, message: 'Internal Server Error' });
+
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          success: false,
+          message: 'Validation error',
+          errors: error.errors,
+        });
+      }
+
+      return res.status(500).json({
+        success: false,
+        message: 'Internal Server Error',
+      });
     }
   })
 );

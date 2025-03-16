@@ -21,7 +21,7 @@ export class User extends Model<
   declare email: string;
   declare password: string;
   declare userName: string;
-  declare role: UserRole;
+  declare role: CreationOptional<UserRole>;
 
   static associate(models: any) {
     this.belongsToMany(models.Survey, {
