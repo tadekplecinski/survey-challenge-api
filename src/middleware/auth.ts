@@ -2,6 +2,11 @@ import { Request, Response, NextFunction } from 'express';
 
 import JWTUtils from '../utils/jwt-utils.ts';
 
+interface JwtPayload {
+  email: string;
+  role: string;
+}
+
 export default function (req: Request, res: Response, next: NextFunction) {
   const authHeader = req.headers.authorization;
 
@@ -28,8 +33,11 @@ export default function (req: Request, res: Response, next: NextFunction) {
   }
 
   try {
-    const jwt = JWTUtils.verifyAccessToken(token);
-    req.body.jwt = jwt;
+    const jwt = JWTUtils.verifyAccessToken(token) as JwtPayload;
+    req.body.user = {
+      email: jwt.email,
+      role: jwt.role,
+    };
     next();
   } catch (err) {
     res.status(401).send({ success: false, message: 'Invalid token' });

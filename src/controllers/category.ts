@@ -52,10 +52,10 @@ router.post(
 
       const { name, description, status } = result.data;
 
-      const creator = await getUserByEmail(req.body.jwt.email);
+      const userRole = req.body.user.role;
 
-      if (!creator || creator.role !== 'admin') {
-        return res.status(403).json({
+      if (userRole !== 'admin') {
+        return res.status(403).send({
           success: false,
           message: 'Permission denied',
         });
@@ -87,10 +87,10 @@ router.get(
   auth,
   asyncWrapper(async (req: Request, res: Response) => {
     try {
-      const requester = await getUserByEmail(req.body.jwt.email);
+      const userRole = req.body.user.role;
 
-      if (!requester || requester.role !== 'admin') {
-        return res.status(403).json({
+      if (userRole !== 'admin') {
+        return res.status(403).send({
           success: false,
           message: 'Permission denied',
         });
@@ -136,11 +136,10 @@ router.patch(
   auth,
   asyncWrapper(async (req: Request, res: Response) => {
     try {
-      const requesterEmail = req.body.jwt.email;
-      const requester = await getUserByEmail(requesterEmail);
+      const userRole = req.body.user.role;
 
-      if (!requester || requester.role !== 'admin') {
-        return res.status(403).json({
+      if (userRole !== 'admin') {
+        return res.status(403).send({
           success: false,
           message: 'Permission denied',
         });

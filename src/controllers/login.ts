@@ -43,13 +43,14 @@ router.post(
         });
       }
 
-      const payload = { email };
+      const payload = { email, role: user.role };
       const accessToken = JWTUtils.generateAccessToken(payload);
 
       return res.status(200).json({
         success: true,
         message: 'Successfully logged in',
         accessToken,
+        role: user.role,
       });
     } catch (error) {
       console.error('Error logging in:', error);

@@ -36,14 +36,15 @@ router.get(
     try {
       const { params } = getSurveySchema.parse(req);
 
-      const user = await getUserByEmail(req.body.jwt.email);
-      const { id: surveyId } = params;
+      const userRole = req.body.user.role;
 
-      if (!user || user.role !== 'admin') {
-        return res
-          .status(403)
-          .json({ success: false, message: 'Unauthorized' });
+      if (userRole !== 'admin') {
+        return res.status(403).send({
+          success: false,
+          message: 'Permission denied',
+        });
       }
+      const { id: surveyId } = params;
 
       const survey = await Survey.findOne({
         where: { id: surveyId },
@@ -168,9 +169,13 @@ router.get(
       const { query } = getSurveysSchema.parse(req);
       const { title, categoryId, status } = query;
 
-      const user = await getUserByEmail(req.body.jwt.email);
-      if (!user || user.role !== 'admin') {
-        return res.status(403).json({ success: false, message: 'Forbidden' });
+      const userRole = req.body.user.role;
+
+      if (userRole !== 'admin') {
+        return res.status(403).send({
+          success: false,
+          message: 'Permission denied',
+        });
       }
 
       const filters: any = {};

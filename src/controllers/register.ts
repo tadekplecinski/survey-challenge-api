@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 
 import asyncWrapper from '../utils/async-wrapper.ts';
 import JWTUtils from '../utils/jwt-utils.ts';
-import { User } from '../models/user.ts';
+import { User, UserRole } from '../models/user.ts';
 import { getUserByEmail } from './helpers.ts';
 import { z } from 'zod';
 
@@ -12,10 +12,14 @@ const userRegisterSchema = z.object({
   email: z.string().email({ message: 'Invalid email format' }),
   password: z
     .string()
-    .min(6, { message: 'Password must be at least 6 characters' }), // Password length validation
+    .min(6, { message: 'Password must be at least 6 characters' }),
   userName: z
     .string()
-    .min(3, { message: 'Username must be at least 3 characters' }), // Username length validation
+    .min(3, { message: 'Username must be at least 3 characters' }),
+  role: z
+    .enum([UserRole.ADMIN, UserRole.USER])
+    .optional()
+    .default(UserRole.USER),
 });
 
 router.post(
@@ -34,7 +38,7 @@ router.post(
         });
       }
 
-      const { email, password, userName } = result.data;
+      const { email, password, userName, role } = result.data;
 
       const existingUser = await getUserByEmail(email);
       if (existingUser) {
@@ -44,14 +48,15 @@ router.post(
         });
       }
 
-      const newUser = await User.create({ email, password, userName });
-      const payload = { email };
+      const newUser = await User.create({ email, password, userName, role });
+      const payload = { email, role: newUser.role };
       const accessToken = JWTUtils.generateAccessToken(payload);
 
       return res.status(201).json({
         success: true,
         message: 'User successfully registered',
         accessToken,
+        role: newUser.role,
       });
     } catch (error) {
       console.error('Error during registration:', error);
