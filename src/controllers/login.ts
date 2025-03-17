@@ -49,7 +49,7 @@ router.post(
       return res.status(200).json({
         success: true,
         message: 'Successfully logged in',
-        data: { accessToken },
+        accessToken,
       });
     } catch (error) {
       console.error('Error logging in:', error);
