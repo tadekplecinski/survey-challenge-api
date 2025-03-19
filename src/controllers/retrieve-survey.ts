@@ -207,6 +207,11 @@ router.get(
             attributes: ['id', 'name'],
             through: { attributes: [] },
           },
+          {
+            model: Question,
+            as: 'questions',
+            attributes: ['id', 'question'],
+          },
         ],
         order: [['createdAt', 'DESC']],
         distinct: true,
