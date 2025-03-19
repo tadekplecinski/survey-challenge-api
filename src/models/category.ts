@@ -41,7 +41,7 @@ export default (sequelize: Sequelize) => {
         allowNull: false,
       },
       name: { type: DataTypes.STRING, allowNull: false },
-      description: { type: DataTypes.STRING, allowNull: true },
+      description: { type: DataTypes.STRING },
       status: {
         type: DataTypes.ENUM(CategoryStatus.Active, CategoryStatus.Archived),
         allowNull: false,

@@ -180,7 +180,7 @@ router.put(
       const { answers, status } = updateUserSurveySchema.parse(req.body);
       const { id: userSurveyId } = req.params;
 
-      const user = await getUserByEmail(req.body.jwt.email);
+      const user = await getUserByEmail(req.body.user.email);
 
       if (!user || user.role !== 'user') {
         return res.status(403).json({
@@ -337,33 +337,52 @@ router.put(
 
       if (title) survey.title = title;
 
-      if (status && status === 'published')
+      if (status === 'published') {
+        if (!questions || questions.length === 0) {
+          return res.status(400).json({
+            success: false,
+            message: 'Cannot publish a survey without questions',
+          });
+        }
         survey.status = SurveyStatus.PUBLISHED;
+      }
 
-      // logic below assumes there will be an endpoint to delete a category from a survey
       if (categoryIds && Array.isArray(categoryIds)) {
-        const existingCategories = await Category.findAll({
+        const categories = await Category.findAll({
           where: { id: categoryIds },
         });
 
-        const currentSurveyCategories = await survey.getCategories();
-        await survey.addCategories(
-          Array.from(
-            new Set([...existingCategories, ...currentSurveyCategories])
-          )
-        );
+        await survey.addCategories(categories);
       }
 
       if (questions && Array.isArray(questions)) {
+        const existingQuestionIds = (await survey.getQuestions()).map(
+          (q) => q.id
+        );
+        const incomingQuestionIds = questions
+          .filter((q) => q.id)
+          .map((q) => q.id);
+
+        // Remove questions that are no longer present in the request
+        const questionsToDelete = existingQuestionIds.filter(
+          (id) => !incomingQuestionIds.includes(id)
+        );
+
+        if (questionsToDelete.length > 0) {
+          await Question.destroy({ where: { id: questionsToDelete } });
+        }
+
+        // Process incoming questions
         for (const q of questions) {
           if (q.id) {
-            // If the questionId exists, update the question
+            // Update existing question
             const existingQuestion = await Question.findByPk(q.id);
             if (existingQuestion) {
               existingQuestion.question = q.question;
               await existingQuestion.save();
             }
           } else {
+            // Create new question
             await Question.create({
               question: q.question,
               surveyId: survey.id,

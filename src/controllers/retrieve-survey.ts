@@ -109,7 +109,7 @@ router.get(
       const { params } = getSurveySchema.parse(req);
       const { id: surveyId } = params;
 
-      const user = await getUserByEmail(req.body.jwt.email);
+      const user = await getUserByEmail(req.body.user.email);
 
       if (!user) {
         return res
@@ -250,7 +250,7 @@ router.get(
       const { query } = getSurveysSchema.parse(req);
       const { title, categoryId, status } = query;
 
-      const user = await getUserByEmail(req.body.jwt.email);
+      const user = await getUserByEmail(req.body.user.email);
       if (!user) {
         return res
           .status(404)
@@ -277,6 +277,10 @@ router.get(
         where: userSurveyFilters,
         include: [
           {
+            model: Answer,
+            attributes: ['id', 'answer', 'questionId'],
+          },
+          {
             model: Survey,
             required: true,
             where: surveyFilters,
@@ -286,6 +290,11 @@ router.get(
                 as: 'categories',
                 attributes: ['id', 'name'],
                 through: { attributes: [] },
+              },
+              {
+                model: Question,
+                as: 'questions',
+                attributes: ['id', 'question'],
               },
             ],
           },
@@ -300,7 +309,7 @@ router.get(
         total: userSurveys.count,
       });
     } catch (error) {
-      console.error('Error fetching surveys (Admin):', error);
+      console.error('Error fetching surveys (User):', error);
 
       if (error instanceof z.ZodError) {
         return res.status(400).json({

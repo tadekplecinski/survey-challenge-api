@@ -5,7 +5,6 @@ import { Op } from 'sequelize';
 import asyncWrapper from '../utils/async-wrapper.ts';
 import auth from '../middleware/auth.ts';
 import { Category, CategoryStatus } from '../models/category.ts';
-import { getUserByEmail } from './helpers.ts';
 
 const router = Router();
 
