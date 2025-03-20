@@ -12,11 +12,20 @@ import { getUserByEmail } from './helpers.ts';
 
 const router = Router();
 
-const createSurveySchema = z.object({
-  title: z.string().min(3, 'Title must be at least 3 characters'),
-  questions: z.array(z.string().min(1, 'Questions cannot be empty')),
-  categoryIds: z.array(z.number().positive('Invalid category ID')),
-});
+const createSurveySchema = z
+  .object({
+    title: z.string().min(3, 'Title must be at least 3 characters'),
+    questions: z.array(z.string().min(1, 'Questions cannot be empty')),
+    categoryIds: z.array(z.number().positive('Invalid category ID')),
+    status: z.enum([SurveyStatus.DRAFT, SurveyStatus.PUBLISHED]),
+  })
+  .refine(
+    (data) => (data.status === 'published' ? data.questions.length > 0 : true),
+    {
+      message: 'A survey must have at least one question to be published.',
+      path: ['status'],
+    }
+  );
 
 const inviteUserSchema = z.object({
   inviteeEmail: z.string().email('Invalid email format'),
@@ -56,12 +65,10 @@ router.post(
   auth,
   asyncWrapper(async (req: Request, res: Response) => {
     try {
-      const { title, questions, categoryIds } = createSurveySchema.parse(
-        req.body
-      );
+      const { title, questions, categoryIds, status } =
+        createSurveySchema.parse(req.body);
 
       const userRole = req.body.user.role;
-
       if (userRole !== 'admin') {
         return res.status(403).send({
           success: false,
@@ -73,6 +80,7 @@ router.post(
         title,
         questions,
         categoryIds,
+        status,
       });
 
       return res.status(200).send({

@@ -61,13 +61,16 @@ export class Survey extends Model<
     title,
     questions,
     categoryIds,
+    status,
   }: {
     title: string;
     questions: string[];
     categoryIds: number[];
+    status?: SurveyStatus;
   }) {
     const survey = await Survey.create({
       title,
+      status,
     });
 
     if (questions.length > 0) {
