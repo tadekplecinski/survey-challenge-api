@@ -26,14 +26,26 @@ export default {
       [
         {
           email: 'admin@example.com',
-          password: hashSync('password123', 10),
+          password: hashSync('123456', 10),
           userName: 'adminUser',
           role: 'admin',
         },
         {
-          email: 'user@example.com',
-          password: hashSync('password123', 10),
-          userName: 'regularUser',
+          email: 'user1@example.com',
+          password: hashSync('123456', 10),
+          userName: 'regularUser1',
+          role: 'user',
+        },
+        {
+          email: 'user2@example.com',
+          password: hashSync('123456', 10),
+          userName: 'regularUser2',
+          role: 'user',
+        },
+        {
+          email: 'user3@example.com',
+          password: hashSync('123456', 10),
+          userName: 'regularUser3',
           role: 'user',
         },
       ],
