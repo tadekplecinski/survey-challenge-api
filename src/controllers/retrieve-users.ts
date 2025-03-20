@@ -3,6 +3,7 @@ import { z } from 'zod';
 import auth from '../middleware/auth.ts';
 import asyncWrapper from '../utils/async-wrapper.ts';
 import { User } from '../models/user.ts';
+import { Survey } from '../models/survey.ts';
 
 const router = Router();
 
@@ -22,6 +23,13 @@ router.get(
 
       const users = await User.findAll({
         where: { role: 'user' },
+        include: [
+          {
+            model: Survey,
+            through: { attributes: [] },
+            attributes: ['id'],
+          },
+        ],
         attributes: ['id', 'email', 'userName'],
       });
 

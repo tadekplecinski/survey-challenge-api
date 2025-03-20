@@ -115,15 +115,6 @@ router.post(
         });
       }
 
-      const invitee = await getUserByEmail(inviteeEmail);
-
-      if (!invitee) {
-        return res.status(404).json({
-          success: false,
-          message: 'Invitee user not found',
-        });
-      }
-
       const survey = await Survey.findOne({
         where: { id: surveyId },
       });
@@ -139,6 +130,26 @@ router.post(
         return res.status(403).json({
           success: false,
           message: 'Survey has not been published yet',
+        });
+      }
+
+      const invitee = await getUserByEmail(inviteeEmail);
+
+      if (!invitee) {
+        return res.status(404).json({
+          success: false,
+          message: 'Invitee user not found',
+        });
+      }
+
+      const existingUserSurvey = await UserSurvey.findOne({
+        where: { userId: invitee.id, surveyId },
+      });
+
+      if (existingUserSurvey) {
+        return res.status(409).json({
+          success: false,
+          message: 'User is already invited to this survey',
         });
       }
 
