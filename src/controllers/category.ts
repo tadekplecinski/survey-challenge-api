@@ -154,6 +154,15 @@ router.patch(
         });
       }
 
+      const surveys = await category.getSurveys();
+
+      if (surveys.length > 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'Cannot archive a category that is associated with a survey',
+        });
+      }
+
       category.status = CategoryStatus.Archived;
       await category.save();
 

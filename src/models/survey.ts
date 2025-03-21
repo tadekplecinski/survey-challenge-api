@@ -8,6 +8,7 @@ import {
   BelongsToManyAddAssociationsMixin,
   HasManyGetAssociationsMixin,
   HasManyCountAssociationsMixin,
+  BelongsToManySetAssociationsMixin,
 } from 'sequelize';
 import { UserSurvey } from './userSurvey.ts';
 import { Question } from './question.ts';
@@ -28,6 +29,7 @@ export class Survey extends Model<
 
   declare addCategories: BelongsToManyAddAssociationsMixin<Category, number>;
   declare getCategories: HasManyGetAssociationsMixin<Category>;
+  declare setCategories: BelongsToManySetAssociationsMixin<Category, number>;
 
   declare getQuestions: HasManyGetAssociationsMixin<Question>;
   declare getUserSurveys: HasManyGetAssociationsMixin<UserSurvey>;

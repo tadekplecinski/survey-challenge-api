@@ -5,7 +5,9 @@ import {
   InferAttributes,
   InferCreationAttributes,
   CreationOptional,
+  HasManyGetAssociationsMixin,
 } from 'sequelize';
+import { Survey } from './survey.ts';
 
 export enum CategoryStatus {
   Active = 'active',
@@ -20,6 +22,7 @@ export class Category extends Model<
   declare name: string;
   declare description: string;
   declare status: CreationOptional<CategoryStatus>;
+  declare getSurveys: HasManyGetAssociationsMixin<Survey>;
 
   static associate(models: any) {
     this.belongsToMany(models.Survey, {

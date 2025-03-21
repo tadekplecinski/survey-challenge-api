@@ -371,7 +371,7 @@ router.put(
           where: { id: categoryIds },
         });
 
-        await survey.addCategories(categories);
+        await survey.setCategories(categories);
       }
 
       if (questions && Array.isArray(questions)) {
